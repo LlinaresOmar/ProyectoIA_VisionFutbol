@@ -165,3 +165,26 @@ Metricas generadas:
 - metricas frame a frame para futuro panel HTML/CSS/JS.
 
 La comparacion ByteTrack vs BoT-SORT queda como siguiente bloque de v2.
+
+## Comparacion rapida ByteTrack vs BoT-SORT
+
+Se anadio `tools/compare_trackers.py` para ejecutar el mismo clip con varios trackers y comparar las metricas generadas.
+
+Prueba rapida:
+
+```powershell
+C:\Users\javie\miniconda3\envs\football-ai\python.exe tools/compare_trackers.py --input videos/clips/prepared/clip_05m00s_20s.mp4 --process-every 5
+```
+
+Resultado inicial sobre `clip_05m00s_20s.mp4`:
+
+| Tracker | Tracks unicos | Longitud media | Longitud maxima | Tracks >=25 frames |
+| --- | ---: | ---: | ---: | ---: |
+| ByteTrack | 24 | 13.46 | 74 | 5 |
+| BoT-SORT | 28 | 11.54 | 39 | 3 |
+
+Conclusion provisional:
+
+- ByteTrack queda como tracker principal inicial.
+- BoT-SORT funciona, pero en esta prueba rapida genera mas IDs y tracks mas cortos.
+- Falta una comparacion completa sobre varios clips antes de cerrar la decision.

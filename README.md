@@ -113,6 +113,20 @@ Pendiente dentro de v2:
 - Afinar estabilidad de IDs.
 - Agrupar colores de camiseta por equipo.
 
+## Comparar Trackers
+
+Ejemplo rapido:
+
+```powershell
+C:\Users\javie\miniconda3\envs\football-ai\python.exe tools/compare_trackers.py --input videos/clips/prepared/clip_05m00s_20s.mp4 --process-every 5
+```
+
+Ejemplo completo:
+
+```powershell
+C:\Users\javie\miniconda3\envs\football-ai\python.exe tools/compare_trackers.py --input videos/clips/prepared/clip_05m00s_20s.mp4
+```
+
 Pendiente para versiones posteriores:
 
 - Posesion visible y pases aproximados.
