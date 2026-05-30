@@ -61,7 +61,10 @@ report_panel:
   output_dir: videos/output/reports
 
 team_classification:
-  enabled: false
+  enabled: true
+  method: rgb_kmeans
+  num_teams: 2
+  min_jersey_samples: 5
 
 team_memory:
   enabled: true

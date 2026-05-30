@@ -162,6 +162,7 @@ Metricas generadas:
 - tracks unicos;
 - duracion media y maxima de tracks;
 - color medio de camiseta por track;
+- agrupacion inicial `team_1`/`team_2` por color RGB medio de camiseta;
 - metricas frame a frame para futuro panel HTML/CSS/JS.
 
 La comparacion ByteTrack vs BoT-SORT queda como siguiente bloque de v2.

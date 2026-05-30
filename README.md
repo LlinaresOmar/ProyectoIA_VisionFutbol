@@ -105,13 +105,14 @@ Implementado inicialmente:
   - confianza media;
   - distancia aproximada recorrida en pixeles;
   - color medio de camiseta en BGR/RGB/HSV.
+- Agrupacion inicial de tracks en `team_1`/`team_2` mediante color medio RGB de camiseta.
 - Exportacion de metricas JSON por clip para alimentar un futuro panel HTML/CSS/JS.
 
 Pendiente dentro de v2:
 
 - Comparacion formal ByteTrack vs BoT-SORT.
 - Afinar estabilidad de IDs.
-- Agrupar colores de camiseta por equipo.
+- Mejorar la agrupacion de equipos usando solo frames analizables y crops de camiseta mas robustos.
 
 ## Comparar Trackers
 

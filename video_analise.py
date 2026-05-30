@@ -531,7 +531,104 @@ def build_frame_metrics(frame_index, status, persons, selected_ball, ball_from_m
     }
 
 
+def squared_distance(first, second):
+    return sum((first[index] - second[index]) ** 2 for index in range(len(first)))
+
+
+def mean_vector(vectors):
+    if not vectors:
+        return None
+
+    return [
+        sum(vector[index] for vector in vectors) / len(vectors)
+        for index in range(len(vectors[0]))
+    ]
+
+
+def initial_centroids(vectors):
+    if len(vectors) == 1:
+        return [vectors[0], vectors[0]]
+
+    best_pair = (vectors[0], vectors[1])
+    best_distance = -1.0
+    for first_index, first in enumerate(vectors):
+        for second in vectors[first_index + 1:]:
+            distance = squared_distance(first, second)
+            if distance > best_distance:
+                best_distance = distance
+                best_pair = (first, second)
+
+    return [list(best_pair[0]), list(best_pair[1])]
+
+
+def assign_team_clusters(tracks, config):
+    if not bool(nested_get(config, ["team_classification", "enabled"], True)):
+        return tracks, {}
+
+    num_teams = int(nested_get(config, ["team_classification", "num_teams"], 2))
+    min_samples = int(nested_get(config, ["team_classification", "min_jersey_samples"], 5))
+    if num_teams != 2:
+        return tracks, {}
+
+    candidates = [
+        track
+        for track in tracks
+        if track.get("avg_jersey_rgb") is not None
+        and int(track.get("jersey_samples", 0)) >= min_samples
+    ]
+    if len(candidates) < 2:
+        for track in tracks:
+            track["team_id"] = None
+        return tracks, {}
+
+    vectors = [track["avg_jersey_rgb"] for track in candidates]
+    centroids = initial_centroids(vectors)
+    assignments = [0 for _ in candidates]
+
+    for _ in range(10):
+        changed = False
+        for index, vector in enumerate(vectors):
+            distances = [squared_distance(vector, centroid) for centroid in centroids]
+            assignment = int(distances[1] < distances[0])
+            if assignment != assignments[index]:
+                assignments[index] = assignment
+                changed = True
+
+        for team_index in range(2):
+            team_vectors = [
+                vector
+                for vector, assignment in zip(vectors, assignments)
+                if assignment == team_index
+            ]
+            centroid = mean_vector(team_vectors)
+            if centroid is not None:
+                centroids[team_index] = centroid
+
+        if not changed:
+            break
+
+    team_info = {}
+    for team_index, centroid in enumerate(centroids):
+        team_id = f"team_{team_index + 1}"
+        team_info[team_id] = {
+            "avg_rgb": [round(value, 2) for value in centroid],
+            "tracks": 0,
+        }
+
+    track_to_team = {}
+    for track, assignment in zip(candidates, assignments):
+        team_id = f"team_{assignment + 1}"
+        track_to_team[track["track_id"]] = team_id
+        team_info[team_id]["tracks"] += 1
+
+    for track in tracks:
+        track["team_id"] = track_to_team.get(track["track_id"])
+
+    return tracks, team_info
+
+
 def write_stats(
+    config,
     stats_path,
     input_path,
     output_path,
@@ -545,6 +642,7 @@ def write_stats(
 ):
     stats_path.parent.mkdir(parents=True, exist_ok=True)
     tracks = [summary.to_dict() for summary in sorted(track_summaries.values(), key=lambda item: item.track_id)]
+    tracks, team_info = assign_team_clusters(tracks, config)
     track_lengths = [track["frames_seen"] for track in tracks]
 
     payload = {
@@ -565,11 +663,16 @@ def write_stats(
             "ball_visible_frames": ball_visible_frames,
             "status_counts": status_counts,
             "unique_player_tracks": len(tracks),
+            "team_counts": {
+                team_id: item["tracks"]
+                for team_id, item in team_info.items()
+            },
             "avg_track_length_frames": round(sum(track_lengths) / len(track_lengths), 2)
             if track_lengths
             else 0.0,
             "max_track_length_frames": max(track_lengths) if track_lengths else 0,
         },
+        "teams": team_info,
         "tracks": tracks,
         "frames": frame_metrics,
     }
@@ -798,6 +901,7 @@ def main():
 
     if bool(nested_get(config, ["stats", "enabled"], True)):
         write_stats(
+            config,
             stats_path,
             input_path,
             output_path,
