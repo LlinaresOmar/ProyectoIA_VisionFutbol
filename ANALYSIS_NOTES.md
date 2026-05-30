@@ -75,3 +75,32 @@ La deteccion del balon esta limitada por la resolucion 224p. SoccerNet permite d
 - si hace falta reducir `imgsz` o procesar clips mas cortos.
 
 La configuracion actual debe entenderse como una configuracion razonable para 224p, no como el ajuste final para videos de mayor resolucion.
+
+## Falso positivo del logo de TV
+
+Durante la revision visual se detecto un falso positivo recurrente: el logo fijo de retransmision en la esquina inferior derecha se confunde con `sports ball`.
+
+Ejemplos:
+
+- `clip_05m00s_20s_analysed.mp4`, aproximadamente entre 00:00:06 y 00:00:11.
+- Planos `CLOSE_UP` en `clip_25m00s_30s_analysed.mp4`.
+- Planos `CLOSE_UP` en `primer_plano_12m30s_20s_analysed.mp4`.
+
+Decision:
+
+- Anadir `ball_filter.ignore_regions` en `config/config.yaml`.
+- Descartar candidatos a balon cuyo centro caiga dentro de la esquina inferior derecha configurada.
+- Mantenerlo configurable porque puede variar entre canales, resoluciones y partidos.
+- Suprimir la visualizacion de `ball memory` en frames `CLOSE_UP`, porque en primeros planos la memoria del balon no aporta valor y puede parecer un falso positivo.
+
+La primera region configurada es:
+
+```yaml
+ball_filter:
+  ignore_regions:
+    - name: tv_logo_bottom_right
+      x_min_ratio: 0.82
+      y_min_ratio: 0.70
+      x_max_ratio: 1.00
+      y_max_ratio: 1.00
+```

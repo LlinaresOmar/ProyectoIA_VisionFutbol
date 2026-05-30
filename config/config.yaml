@@ -25,6 +25,15 @@ frame_analysis:
   min_players_for_play_frame: 4
   max_person_area_ratio_for_closeup: 0.25
   ball_memory_frames: 12
+  suppress_ball_memory_on_closeup: true
+
+ball_filter:
+  ignore_regions:
+    - name: tv_logo_bottom_right
+      x_min_ratio: 0.82
+      y_min_ratio: 0.70
+      x_max_ratio: 1.00
+      y_max_ratio: 1.00
 
 tracking:
   enabled: false

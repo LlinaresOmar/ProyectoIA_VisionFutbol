@@ -42,6 +42,24 @@ Salida por defecto:
 videos/output/clip_00m00s_20s_analysed.mp4
 ```
 
+## Descargar otro video de SoccerNet
+
+Antes de descargar, configurar la contrasena en la variable de entorno `SOCCERNET_PASSWORD`.
+
+Ejemplo en 224p:
+
+```powershell
+C:\Users\javie\miniconda3\envs\football-ai\python.exe video_download.py --quality 224p
+```
+
+Ejemplo en 720p:
+
+```powershell
+C:\Users\javie\miniconda3\envs\football-ai\python.exe video_download.py --quality 720p
+```
+
+Para probar otro partido/canal, pasar el identificador SoccerNet con `--game`.
+
 ## Estado de v1
 
 Implementado:
@@ -57,6 +75,7 @@ Implementado:
   - `ball_conf: 0.10`
   - `min_green_ratio: 0.35`
   - `max_person_area_ratio_for_closeup: 0.25`
+- Filtro configurable de regiones ignoradas para el balon, usado inicialmente para descartar el logo de TV en la esquina inferior derecha.
 - Estados de frame:
   - `PLAY_ANALYZABLE`
   - `NO_BALL_VISIBLE`

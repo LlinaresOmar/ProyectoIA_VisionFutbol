@@ -30,6 +30,7 @@ Analizar clips cortos de futbol de SoccerNet. El sistema debe detectar jugadores
 - `videos/input/1_224p.mkv`
 - `videos/input/2_224p.mkv`
 - Clips preparados en `videos/clips/prepared/`.
+- `video_download.py` permite descargar `224p` o `720p` usando `--quality` y otro partido usando `--game`.
 
 ## Umbrales iniciales
 
@@ -42,6 +43,7 @@ Analizar clips cortos de futbol de SoccerNet. El sistema debe detectar jugadores
 - `DEVICE = cpu`
 - `min_green_ratio = 0.35`
 - `max_person_area_ratio_for_closeup = 0.25`
+- Los candidatos a balon dentro de `ball_filter.ignore_regions` se descartan. Esto evita falsos positivos provocados por el logo fijo de TV en la esquina inferior derecha.
 
 ## Roadmap
 

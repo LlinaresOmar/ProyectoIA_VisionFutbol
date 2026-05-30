@@ -143,6 +143,27 @@ def green_ratio(frame):
     return float(cv2.countNonZero(mask)) / float(frame.shape[0] * frame.shape[1])
 
 
+def detection_center_in_region(detection, region, width, height):
+    cx, cy = detection.center
+    x_min = float(region.get("x_min_ratio", 0.0)) * width
+    y_min = float(region.get("y_min_ratio", 0.0)) * height
+    x_max = float(region.get("x_max_ratio", 1.0)) * width
+    y_max = float(region.get("y_max_ratio", 1.0)) * height
+    return x_min <= cx <= x_max and y_min <= cy <= y_max
+
+
+def is_ignored_ball_candidate(detection, config, width, height):
+    regions = nested_get(config, ["ball_filter", "ignore_regions"], [])
+    if not isinstance(regions, list):
+        return False
+
+    return any(
+        detection_center_in_region(detection, region, width, height)
+        for region in regions
+        if isinstance(region, dict)
+    )
+
+
 def select_ball(candidates, memory):
     if not candidates:
         return None
@@ -224,7 +245,7 @@ def draw_status_panel(frame, status, frame_index, persons, ball, ball_from_memor
         )
 
 
-def detections_from_result(result, args, width, height):
+def detections_from_result(result, args, config, width, height):
     person_class_id = 0
     ball_class_id = 32
     persons = []
@@ -241,7 +262,11 @@ def detections_from_result(result, args, width, height):
 
         if class_id == person_class_id and conf >= args.person_conf:
             persons.append(detection)
-        elif class_id == ball_class_id and conf >= args.ball_conf:
+        elif (
+            class_id == ball_class_id
+            and conf >= args.ball_conf
+            and not is_ignored_ball_candidate(detection, config, width, height)
+        ):
             balls.append(detection)
 
     return persons, balls
@@ -329,7 +354,7 @@ def main():
                 device=args.device,
                 verbose=False,
             )
-            persons, ball_candidates = detections_from_result(results[0], args, width, height)
+            persons, ball_candidates = detections_from_result(results[0], args, config, width, height)
             selected_ball = select_ball(ball_candidates, ball_memory)
             ball_from_memory = False
 
@@ -338,6 +363,11 @@ def main():
                 ball_memory.missed_frames = 0
             else:
                 ball_memory.missed_frames += 1
+                if (
+                    ball_memory.detection is not None
+                    and is_ignored_ball_candidate(ball_memory.detection, config, width, height)
+                ):
+                    ball_memory.detection = None
                 if (
                     ball_memory.detection is not None
                     and ball_memory.missed_frames <= args.ball_memory_frames
@@ -352,6 +382,14 @@ def main():
                 ball_visible_frames += 1
 
             status = classify_frame(frame, persons, selected_ball is not None, config)
+            if (
+                status == "CLOSE_UP"
+                and ball_from_memory
+                and bool(nested_get(config, ["frame_analysis", "suppress_ball_memory_on_closeup"], True))
+            ):
+                selected_ball = None
+                ball_from_memory = False
+
             status_counts[status] = status_counts.get(status, 0) + 1
 
             elapsed = (cv2.getTickCount() - start_tick) / cv2.getTickFrequency()
