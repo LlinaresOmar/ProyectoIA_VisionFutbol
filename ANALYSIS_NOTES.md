@@ -189,3 +189,23 @@ Conclusion provisional:
 - ByteTrack queda como tracker principal inicial.
 - BoT-SORT funciona, pero en esta prueba rapida genera mas IDs y tracks mas cortos.
 - Falta una comparacion completa sobre varios clips antes de cerrar la decision.
+
+## Primer panel HTML de metricas
+
+Se anadio `tools/generate_report_panel.py` para convertir un JSON de metricas en un panel HTML estatico.
+
+Ejemplo:
+
+```powershell
+C:\Users\javie\miniconda3\envs\football-ai\python.exe tools/generate_report_panel.py --stats videos/output/stats/clip_05m00s_20s_stats.json
+```
+
+Contenido del panel:
+
+- tarjetas resumen;
+- porcentaje de frames por estado;
+- equipos agrupados por color;
+- timeline animada de estados;
+- tabla con los tracks principales.
+
+Este panel es la base del informe visual por clip. No requiere servidor web.

@@ -128,6 +128,18 @@ Ejemplo completo:
 C:\Users\javie\miniconda3\envs\football-ai\python.exe tools/compare_trackers.py --input videos/clips/prepared/clip_05m00s_20s.mp4
 ```
 
+## Generar Panel HTML
+
+```powershell
+C:\Users\javie\miniconda3\envs\football-ai\python.exe tools/generate_report_panel.py --stats videos/output/stats/clip_05m00s_20s_stats.json
+```
+
+Salida por defecto:
+
+```text
+videos/output/stats/clip_05m00s_20s_stats.html
+```
+
 Pendiente para versiones posteriores:
 
 - Posesion visible y pases aproximados.
