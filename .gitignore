@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Local environments and secrets
+.env
+.venv/
+venv/
+env/
+
+# Generated media and model artifacts
+videos/
+runs/
+*.pt
+*.onnx
+*.engine
+*.avi
+*.mp4
+*.mkv
+
+# Local experiments and downloaded examples
+bus.jpg
+video_download copy*.py
+
+# Keep model directory structure without tracking model weights
+!models/
+!models/.gitkeep
