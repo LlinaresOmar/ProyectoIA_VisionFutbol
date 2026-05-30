@@ -18,12 +18,12 @@ classes:
 
 thresholds:
   person_conf: 0.25
-  ball_conf: 0.05
+  ball_conf: 0.10
 
 frame_analysis:
-  min_green_ratio: 0.25
+  min_green_ratio: 0.35
   min_players_for_play_frame: 4
-  max_person_area_ratio_for_closeup: 0.35
+  max_person_area_ratio_for_closeup: 0.25
   ball_memory_frames: 12
 
 tracking:

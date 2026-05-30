@@ -53,6 +53,10 @@ Implementado:
 - Umbrales separados para personas y balon.
 - Seleccion de un unico balon por frame.
 - Memoria breve del balon.
+- Ajuste inicial de heuristicas:
+  - `ball_conf: 0.10`
+  - `min_green_ratio: 0.35`
+  - `max_person_area_ratio_for_closeup: 0.25`
 - Estados de frame:
   - `PLAY_ANALYZABLE`
   - `NO_BALL_VISIBLE`
@@ -66,3 +70,4 @@ Pendiente para versiones posteriores:
 - Clasificacion de equipos por color.
 - Posesion visible y pases aproximados.
 - Posibles salidas de campo y goles.
+- Comparar los mismos clips en 720p desde SoccerNet para mejorar la deteccion del balon.

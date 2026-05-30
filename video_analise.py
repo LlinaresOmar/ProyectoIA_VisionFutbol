@@ -99,7 +99,7 @@ def parse_args():
     parser.add_argument(
         "--ball-conf",
         type=float,
-        default=float(nested_get(config, ["thresholds", "ball_conf"], 0.05)),
+        default=float(nested_get(config, ["thresholds", "ball_conf"], 0.10)),
         help="Confianza minima para aceptar balon.",
     )
     parser.add_argument(
@@ -164,9 +164,9 @@ def classify_frame(frame, persons, visible_ball, config):
     height, width = frame.shape[:2]
     frame_area = width * height
     min_players = int(nested_get(config, ["frame_analysis", "min_players_for_play_frame"], 4))
-    min_green = float(nested_get(config, ["frame_analysis", "min_green_ratio"], 0.25))
+    min_green = float(nested_get(config, ["frame_analysis", "min_green_ratio"], 0.35))
     max_closeup_area = float(
-        nested_get(config, ["frame_analysis", "max_person_area_ratio_for_closeup"], 0.35)
+        nested_get(config, ["frame_analysis", "max_person_area_ratio_for_closeup"], 0.25)
     )
 
     largest_person_ratio = 0.0

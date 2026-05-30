@@ -23,6 +23,7 @@ Analizar clips cortos de futbol de SoccerNet. El sistema debe detectar jugadores
 - Python detectado del entorno: `C:\Users\javie\miniconda3\envs\football-ai\python.exe`.
 - Modelo: `yolo26n.pt`.
 - Resolucion actual de prueba: 224p.
+- SoccerNet puede proporcionar videos de mayor calidad, por ejemplo 720p. Conviene usar 720p en una bateria posterior para mejorar la deteccion del balon y comparar coste de CPU.
 
 ## Datos disponibles
 
@@ -34,11 +35,13 @@ Analizar clips cortos de futbol de SoccerNet. El sistema debe detectar jugadores
 
 - `MODEL_CONF = 0.05`
 - `PERSON_CONF = 0.25`
-- `BALL_CONF = 0.05`
+- `BALL_CONF = 0.10`
 - `PERSON_CLASS_ID = 0`
 - `BALL_CLASS_ID = 32`
 - `IMGSZ = 640`
 - `DEVICE = cpu`
+- `min_green_ratio = 0.35`
+- `max_person_area_ratio_for_closeup = 0.25`
 
 ## Roadmap
 
