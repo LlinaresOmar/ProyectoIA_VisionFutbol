@@ -208,20 +208,58 @@ def classify_frame(frame, persons, visible_ball, config):
     return "UNKNOWN"
 
 
-def draw_label(frame, text, x, y, bg_color, fg_color=(255, 255, 255)):
+def draw_label(
+    frame,
+    text,
+    x,
+    y,
+    bg_color,
+    fg_color=(255, 255, 255),
+    scale=0.45,
+    bg_alpha=1.0,
+):
     font = cv2.FONT_HERSHEY_SIMPLEX
-    scale = 0.45
     thickness = 1
     (text_width, text_height), baseline = cv2.getTextSize(text, font, scale, thickness)
-    y = max(text_height + baseline + 4, y)
-    cv2.rectangle(
+    label_width = text_width + 8
+    label_height = text_height + baseline + 7
+    height, width = frame.shape[:2]
+
+    x = max(0, min(width - label_width - 1, int(x)))
+    y = max(0, min(height - label_height - 1, int(y)))
+
+    x2 = x + label_width
+    y2 = y + label_height
+    bg_alpha = max(0.0, min(1.0, float(bg_alpha)))
+
+    if bg_alpha >= 1.0:
+        cv2.rectangle(frame, (x, y), (x2, y2), bg_color, -1)
+    elif bg_alpha > 0:
+        overlay = frame.copy()
+        cv2.rectangle(overlay, (x, y), (x2, y2), bg_color, -1)
+        cv2.addWeighted(overlay, bg_alpha, frame, 1.0 - bg_alpha, 0, frame)
+
+    cv2.putText(
         frame,
-        (x, y - text_height - baseline - 6),
-        (x + text_width + 8, y + baseline),
-        bg_color,
-        -1,
+        text,
+        (x + 4, y + text_height + 3),
+        font,
+        scale,
+        fg_color,
+        thickness,
+        cv2.LINE_AA,
     )
-    cv2.putText(frame, text, (x + 4, y - 5), font, scale, fg_color, thickness, cv2.LINE_AA)
+
+
+def annotation_resolution_scale(frame, config):
+    if not bool(nested_get(config, ["annotation", "scale_with_resolution"], True)):
+        return 1.0
+
+    reference_height = float(nested_get(config, ["annotation", "reference_frame_height"], 224))
+    if reference_height <= 0:
+        return 1.0
+
+    return max(1.0, frame.shape[0] / reference_height)
 
 
 def draw_status_panel(frame, status, frame_index, persons, ball, ball_from_memory, fps_estimate):
@@ -272,10 +310,53 @@ def detections_from_result(result, args, config, width, height):
     return persons, balls
 
 
-def annotate_frame(frame, persons, ball, ball_from_memory, status, frame_index, fps_estimate):
+def draw_person_marker(frame, person, config):
+    color = (60, 220, 80)
+    visual_scale = annotation_resolution_scale(frame, config)
+    thickness = max(
+        1,
+        int(round(int(nested_get(config, ["annotation", "person_marker_thickness"], 1)) * visual_scale)),
+    )
+    style = nested_get(config, ["annotation", "person_marker_style"], "lower_u")
+
+    if style != "lower_u":
+        cv2.rectangle(frame, (person.x1, person.y1), (person.x2, person.y2), color, thickness)
+        return
+
+    height = max(1, person.y2 - person.y1)
+    u_ratio = float(nested_get(config, ["annotation", "person_marker_height_ratio"], 0.25))
+    u_height = max(3, int(height * u_ratio))
+    y_top = max(person.y1, person.y2 - u_height)
+
+    cv2.line(frame, (person.x1, person.y2), (person.x1, y_top), color, thickness)
+    cv2.line(frame, (person.x2, person.y2), (person.x2, y_top), color, thickness)
+    cv2.line(frame, (person.x1, person.y2), (person.x2, person.y2), color, thickness)
+
+
+def annotate_frame(frame, persons, ball, ball_from_memory, status, frame_index, fps_estimate, config):
+    visual_scale = annotation_resolution_scale(frame, config)
+    base_person_label_scale = 0.45
+    person_label_scale = base_person_label_scale * visual_scale * float(
+        nested_get(config, ["annotation", "person_label_scale_ratio"], 0.40)
+    )
+    person_label_alpha = float(
+        nested_get(config, ["annotation", "person_label_background_alpha"], 0.50)
+    )
+    person_label_offset = int(
+        round(int(nested_get(config, ["annotation", "person_label_offset_px"], 4)) * visual_scale)
+    )
+
     for person in persons:
-        cv2.rectangle(frame, (person.x1, person.y1), (person.x2, person.y2), (60, 220, 80), 1)
-        draw_label(frame, f"person {person.conf:.2f}", person.x1, person.y1, (30, 120, 50))
+        draw_person_marker(frame, person, config)
+        draw_label(
+            frame,
+            f"person {person.conf:.2f}",
+            person.x1,
+            person.y2 + person_label_offset,
+            (30, 120, 50),
+            scale=person_label_scale,
+            bg_alpha=person_label_alpha,
+        )
 
     if ball is not None:
         color = (0, 255, 255) if not ball_from_memory else (0, 165, 255)
@@ -402,6 +483,7 @@ def main():
                 status,
                 frame_index,
                 fps_estimate,
+                config,
             )
 
         writer.write(frame)

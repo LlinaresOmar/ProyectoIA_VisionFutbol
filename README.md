@@ -55,7 +55,7 @@ C:\Users\javie\miniconda3\envs\football-ai\python.exe video_download.py --qualit
 Ejemplo en 720p:
 
 ```powershell
-C:\Users\javie\miniconda3\envs\football-ai\python.exe video_download.py --quality 720p
+C:\Users\javie\miniconda3\envs\football-ai\python.exe video_download.py --quality 720p --halves 1
 ```
 
 Para probar otro partido/canal, pasar el identificador SoccerNet con `--game`.
@@ -76,6 +76,7 @@ Implementado:
   - `min_green_ratio: 0.35`
   - `max_person_area_ratio_for_closeup: 0.25`
 - Filtro configurable de regiones ignoradas para el balon, usado inicialmente para descartar el logo de TV en la esquina inferior derecha.
+- Etiquetas de persona reducidas al 40%, con fondo translucido al 50%, colocadas bajo el jugador y escaladas segun resolucion.
 - Estados de frame:
   - `PLAY_ANALYZABLE`
   - `NO_BALL_VISIBLE`

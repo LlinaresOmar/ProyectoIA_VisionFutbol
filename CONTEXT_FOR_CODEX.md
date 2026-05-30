@@ -44,6 +44,7 @@ Analizar clips cortos de futbol de SoccerNet. El sistema debe detectar jugadores
 - `min_green_ratio = 0.35`
 - `max_person_area_ratio_for_closeup = 0.25`
 - Los candidatos a balon dentro de `ball_filter.ignore_regions` se descartan. Esto evita falsos positivos provocados por el logo fijo de TV en la esquina inferior derecha.
+- Las etiquetas de persona se dibujan pequenas, translucidas, debajo del jugador y escaladas segun resolucion. Las cajas de persona se dibujan como una U inferior.
 
 ## Roadmap
 

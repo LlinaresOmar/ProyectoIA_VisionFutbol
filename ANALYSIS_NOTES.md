@@ -104,3 +104,37 @@ ball_filter:
       x_max_ratio: 1.00
       y_max_ratio: 1.00
 ```
+
+## Ajuste visual de anotaciones
+
+Se redujo el impacto visual de las etiquetas de personas:
+
+- Texto de persona al 40% del tamano base.
+- Fondo translucido al 50%.
+- Etiqueta colocada debajo del jugador, ligeramente separada.
+- Escalado automatico segun resolucion, usando 224p como altura de referencia.
+- Rectangulo completo sustituido por una marca en U en la parte inferior del jugador.
+- La U ocupa el 25% inferior de la caja original.
+
+Esto mejora la legibilidad del video y reduce solapes entre etiquetas.
+
+## Primera prueba 720p
+
+Se descargo `1_720p.mkv` del partido actual y se preparo:
+
+- `videos/clips/prepared_720p/clip_05m00s_20s_720p.mp4`
+- Resolucion: 1280x720.
+- FPS: 25.
+- Frames: 500.
+
+Resultado de `video_analise.py`:
+
+| Clip | Ball visible | PLAY_ANALYZABLE | CLOSE_UP | NO_BALL_VISIBLE | UNKNOWN |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| clip_05m00s_20s_720p | 203 | 220 | 220 | 10 | 50 |
+
+Observaciones:
+
+- El procesamiento de un clip de 20s en 720p con `imgsz=640` sigue siendo viable en CPU.
+- La deteccion del balon mejora respecto al 224p equivalente tras filtrar el logo de TV.
+- Las anotaciones deben escalar con la resolucion para seguir siendo legibles.

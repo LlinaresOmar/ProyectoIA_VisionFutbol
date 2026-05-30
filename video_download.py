@@ -29,6 +29,13 @@ def parse_args():
         help="Calidad de video a descargar.",
     )
     parser.add_argument(
+        "--halves",
+        nargs="+",
+        choices=["1", "2"],
+        default=["1", "2"],
+        help="Mitades del partido a descargar.",
+    )
+    parser.add_argument(
         "--no-labels",
         action="store_true",
         help="Descargar solo videos, sin video.ini ni etiquetas.",
@@ -45,10 +52,7 @@ def main():
     downloader = SoccerNetDownloader(LocalDirectory=args.local_dir)
     downloader.password = password
 
-    files = [
-        f"1_{args.quality}.mkv",
-        f"2_{args.quality}.mkv",
-    ]
+    files = [f"{half}_{args.quality}.mkv" for half in args.halves]
     if not args.no_labels:
         files = [
             "video.ini",
