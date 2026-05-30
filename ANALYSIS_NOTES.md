@@ -138,3 +138,30 @@ Observaciones:
 - El procesamiento de un clip de 20s en 720p con `imgsz=640` sigue siendo viable en CPU.
 - La deteccion del balon mejora respecto al 224p equivalente tras filtrar el logo de TV.
 - Las anotaciones deben escalar con la resolucion para seguir siendo legibles.
+
+## Inicio de v2: tracking y metricas
+
+Se inicia v2 con ByteTrack como tracker base.
+
+Decision de implementacion:
+
+- Usar deteccion normal para personas y balon, conservando el comportamiento de v1.
+- Ejecutar tracking de personas en una segunda pasada por frame.
+- Asociar tracks a detecciones de personas mediante IoU.
+
+Motivo:
+
+- Usar directamente la salida de `track` para todo alteraba el comportamiento del balon y cambiaba demasiado la clasificacion de frames.
+- Separar deteccion y tracking mantiene estable la v1 y permite anadir IDs encima.
+
+Metricas generadas:
+
+- resumen de frames;
+- conteo de estados;
+- frames con balon visible;
+- tracks unicos;
+- duracion media y maxima de tracks;
+- color medio de camiseta por track;
+- metricas frame a frame para futuro panel HTML/CSS/JS.
+
+La comparacion ByteTrack vs BoT-SORT queda como siguiente bloque de v2.

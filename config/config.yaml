@@ -46,11 +46,30 @@ annotation:
   person_marker_thickness: 1
 
 tracking:
-  enabled: false
+  enabled: true
   tracker: bytetrack.yaml
+  show_track_id: true
+  match_iou_threshold: 0.30
+
+stats:
+  enabled: true
+  output_dir: videos/output/stats
+  write_frame_metrics: true
+
+report_panel:
+  enabled: false
+  output_dir: videos/output/reports
 
 team_classification:
   enabled: false
+
+team_memory:
+  enabled: true
+  jersey_crop:
+    x_min_ratio: 0.25
+    x_max_ratio: 0.75
+    y_min_ratio: 0.20
+    y_max_ratio: 0.60
 
 events:
   passes:

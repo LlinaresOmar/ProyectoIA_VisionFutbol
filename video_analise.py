@@ -1,4 +1,5 @@
 import argparse
+import json
 import math
 from dataclasses import dataclass
 from pathlib import Path
@@ -19,6 +20,7 @@ class Detection:
     x2: int
     y2: int
     conf: float
+    track_id: int | None = None
 
     @property
     def center(self):
@@ -33,6 +35,71 @@ class Detection:
 class BallMemory:
     detection: Detection | None = None
     missed_frames: int = 0
+
+
+@dataclass
+class TrackSummary:
+    track_id: int
+    first_frame: int
+    last_frame: int
+    frames_seen: int = 0
+    total_conf: float = 0.0
+    total_distance_px: float = 0.0
+    last_center: tuple[int, int] | None = None
+    jersey_bgr_sum: tuple[float, float, float] = (0.0, 0.0, 0.0)
+    jersey_hsv_sum: tuple[float, float, float] = (0.0, 0.0, 0.0)
+    jersey_samples: int = 0
+
+    def update(self, detection, frame_index, frame=None, config=None):
+        center = detection.center
+        if self.last_center is not None:
+            self.total_distance_px += math.hypot(
+                center[0] - self.last_center[0],
+                center[1] - self.last_center[1],
+            )
+
+        self.frames_seen += 1
+        self.total_conf += detection.conf
+        self.last_center = center
+        self.last_frame = frame_index
+        if frame is not None and config is not None:
+            jersey_color = sample_jersey_color(frame, detection, config)
+            if jersey_color is not None:
+                bgr, hsv = jersey_color
+                self.jersey_bgr_sum = tuple(
+                    self.jersey_bgr_sum[index] + float(bgr[index])
+                    for index in range(3)
+                )
+                self.jersey_hsv_sum = tuple(
+                    self.jersey_hsv_sum[index] + float(hsv[index])
+                    for index in range(3)
+                )
+                self.jersey_samples += 1
+
+    def to_dict(self):
+        avg_conf = self.total_conf / self.frames_seen if self.frames_seen else 0.0
+        avg_bgr = [
+            round(value / self.jersey_samples, 2)
+            for value in self.jersey_bgr_sum
+        ] if self.jersey_samples else None
+        avg_hsv = [
+            round(value / self.jersey_samples, 2)
+            for value in self.jersey_hsv_sum
+        ] if self.jersey_samples else None
+        avg_rgb = [avg_bgr[2], avg_bgr[1], avg_bgr[0]] if avg_bgr else None
+        return {
+            "track_id": self.track_id,
+            "first_frame": self.first_frame,
+            "last_frame": self.last_frame,
+            "frames_seen": self.frames_seen,
+            "avg_conf": round(avg_conf, 4),
+            "total_distance_px": round(self.total_distance_px, 2),
+            "last_center": list(self.last_center) if self.last_center else None,
+            "jersey_samples": self.jersey_samples,
+            "avg_jersey_bgr": avg_bgr,
+            "avg_jersey_rgb": avg_rgb,
+            "avg_jersey_hsv": avg_hsv,
+        }
 
 
 def load_config(path):
@@ -114,6 +181,22 @@ def parse_args():
         default=int(nested_get(config, ["video", "process_every_n_frames"], 1)),
         help="Procesar uno de cada N frames. Por defecto procesa todos.",
     )
+    parser.add_argument(
+        "--tracking",
+        action=argparse.BooleanOptionalAction,
+        default=bool(nested_get(config, ["tracking", "enabled"], True)),
+        help="Activar/desactivar tracking de jugadores.",
+    )
+    parser.add_argument(
+        "--tracker",
+        default=nested_get(config, ["tracking", "tracker"], "bytetrack.yaml"),
+        help="Tracker de Ultralytics. Ejemplo: bytetrack.yaml o botsort.yaml.",
+    )
+    parser.add_argument(
+        "--stats-output",
+        default=None,
+        help="Ruta del JSON de metricas. Si no se indica, se genera en videos/output/stats.",
+    )
     return parser.parse_args()
 
 
@@ -123,6 +206,14 @@ def make_output_path(input_path, explicit_output):
 
     output_dir = Path("videos/output")
     return output_dir / f"{input_path.stem}_analysed.mp4"
+
+
+def make_stats_path(input_path, explicit_stats_output, config):
+    if explicit_stats_output:
+        return Path(explicit_stats_output)
+
+    output_dir = Path(nested_get(config, ["stats", "output_dir"], "videos/output/stats"))
+    return output_dir / f"{input_path.stem}_stats.json"
 
 
 def clamp_box(box, width, height):
@@ -135,12 +226,76 @@ def clamp_box(box, width, height):
     )
 
 
+def box_iou(first, second):
+    x_left = max(first.x1, second.x1)
+    y_top = max(first.y1, second.y1)
+    x_right = min(first.x2, second.x2)
+    y_bottom = min(first.y2, second.y2)
+
+    if x_right <= x_left or y_bottom <= y_top:
+        return 0.0
+
+    intersection = (x_right - x_left) * (y_bottom - y_top)
+    union = first.area + second.area - intersection
+    return intersection / union if union > 0 else 0.0
+
+
+def assign_track_ids(persons, tracked_persons, config):
+    min_iou = float(nested_get(config, ["tracking", "match_iou_threshold"], 0.30))
+    available_tracks = [person for person in tracked_persons if person.track_id is not None]
+    used_track_ids = set()
+
+    for person in persons:
+        best_track = None
+        best_iou = 0.0
+        for tracked_person in available_tracks:
+            if tracked_person.track_id in used_track_ids:
+                continue
+
+            iou = box_iou(person, tracked_person)
+            if iou > best_iou:
+                best_iou = iou
+                best_track = tracked_person
+
+        if best_track is not None and best_iou >= min_iou:
+            person.track_id = best_track.track_id
+            used_track_ids.add(best_track.track_id)
+
+
 def green_ratio(frame):
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
     lower_green = np.array([35, 35, 35])
     upper_green = np.array([95, 255, 255])
     mask = cv2.inRange(hsv, lower_green, upper_green)
     return float(cv2.countNonZero(mask)) / float(frame.shape[0] * frame.shape[1])
+
+
+def sample_jersey_color(frame, detection, config):
+    if not bool(nested_get(config, ["team_memory", "enabled"], True)):
+        return None
+
+    box_width = max(1, detection.x2 - detection.x1)
+    box_height = max(1, detection.y2 - detection.y1)
+    crop_config = nested_get(config, ["team_memory", "jersey_crop"], {})
+
+    x1 = detection.x1 + int(box_width * float(crop_config.get("x_min_ratio", 0.25)))
+    x2 = detection.x1 + int(box_width * float(crop_config.get("x_max_ratio", 0.75)))
+    y1 = detection.y1 + int(box_height * float(crop_config.get("y_min_ratio", 0.20)))
+    y2 = detection.y1 + int(box_height * float(crop_config.get("y_max_ratio", 0.60)))
+
+    height, width = frame.shape[:2]
+    x1, y1, x2, y2 = clamp_box((x1, y1, x2, y2), width, height)
+    if x2 <= x1 or y2 <= y1:
+        return None
+
+    crop = frame[y1:y2, x1:x2]
+    if crop.size == 0:
+        return None
+
+    mean_bgr = cv2.mean(crop)[:3]
+    hsv_crop = cv2.cvtColor(crop, cv2.COLOR_BGR2HSV)
+    mean_hsv = cv2.mean(hsv_crop)[:3]
+    return mean_bgr, mean_hsv
 
 
 def detection_center_in_region(detection, region, width, height):
@@ -263,13 +418,16 @@ def annotation_resolution_scale(frame, config):
 
 
 def draw_status_panel(frame, status, frame_index, persons, ball, ball_from_memory, fps_estimate):
-    ball_text = "visible" if ball and not ball_from_memory else "memory" if ball else "not visible"
+    ball_text = "vis" if ball and not ball_from_memory else "mem" if ball else "no"
+    tracked_persons = sum(1 for person in persons if person.track_id is not None)
     lines = [
         f"Frame {frame_index} | {status}",
-        f"Persons: {len(persons)} | Ball: {ball_text} | FPS proc: {fps_estimate:.2f}",
+        f"P:{len(persons)} T:{tracked_persons} Ball:{ball_text} FPS:{fps_estimate:.1f}",
     ]
 
-    cv2.rectangle(frame, (8, 8), (390, 62), (0, 0, 0), -1)
+    height, width = frame.shape[:2]
+    panel_right = min(width - 8, 360)
+    cv2.rectangle(frame, (8, 8), (panel_right, 62), (0, 0, 0), -1)
     for index, line in enumerate(lines):
         cv2.putText(
             frame,
@@ -292,11 +450,18 @@ def detections_from_result(result, args, config, width, height):
     if result.boxes is None:
         return persons, balls
 
-    for box in result.boxes:
+    track_ids = result.boxes.id
+
+    for index, box in enumerate(result.boxes):
         class_id = int(box.cls[0].item())
         conf = float(box.conf[0].item())
         x1, y1, x2, y2 = clamp_box(box.xyxy[0].cpu().numpy(), width, height)
-        detection = Detection(x1=x1, y1=y1, x2=x2, y2=y2, conf=conf)
+        track_id = None
+        if track_ids is not None:
+            raw_track_id = int(track_ids[index].item())
+            if raw_track_id >= 0:
+                track_id = raw_track_id
+        detection = Detection(x1=x1, y1=y1, x2=x2, y2=y2, conf=conf, track_id=track_id)
 
         if class_id == person_class_id and conf >= args.person_conf:
             persons.append(detection)
@@ -333,6 +498,86 @@ def draw_person_marker(frame, person, config):
     cv2.line(frame, (person.x1, person.y2), (person.x2, person.y2), color, thickness)
 
 
+def update_track_summaries(track_summaries, persons, frame_index, frame, config):
+    for person in persons:
+        if person.track_id is None:
+            continue
+
+        if person.track_id not in track_summaries:
+            track_summaries[person.track_id] = TrackSummary(
+                track_id=person.track_id,
+                first_frame=frame_index,
+                last_frame=frame_index,
+            )
+
+        track_summaries[person.track_id].update(person, frame_index, frame, config)
+
+
+def build_frame_metrics(frame_index, status, persons, selected_ball, ball_from_memory):
+    active_track_ids = sorted(
+        person.track_id for person in persons if person.track_id is not None
+    )
+    ball_center = selected_ball.center if selected_ball is not None else None
+
+    return {
+        "frame": frame_index,
+        "status": status,
+        "persons": len(persons),
+        "tracked_persons": len(active_track_ids),
+        "active_track_ids": active_track_ids,
+        "ball_visible": selected_ball is not None and not ball_from_memory,
+        "ball_from_memory": bool(ball_from_memory),
+        "ball_center": list(ball_center) if ball_center else None,
+    }
+
+
+def write_stats(
+    stats_path,
+    input_path,
+    output_path,
+    args,
+    frame_index,
+    processed_frames,
+    ball_visible_frames,
+    status_counts,
+    track_summaries,
+    frame_metrics,
+):
+    stats_path.parent.mkdir(parents=True, exist_ok=True)
+    tracks = [summary.to_dict() for summary in sorted(track_summaries.values(), key=lambda item: item.track_id)]
+    track_lengths = [track["frames_seen"] for track in tracks]
+
+    payload = {
+        "metadata": {
+            "input": str(input_path),
+            "output": str(output_path),
+            "model": args.model,
+            "imgsz": args.imgsz,
+            "model_conf": args.model_conf,
+            "person_conf": args.person_conf,
+            "ball_conf": args.ball_conf,
+            "tracking_enabled": bool(args.tracking),
+            "tracker": args.tracker if args.tracking else None,
+        },
+        "summary": {
+            "frames_read": frame_index,
+            "frames_analyzed": processed_frames,
+            "ball_visible_frames": ball_visible_frames,
+            "status_counts": status_counts,
+            "unique_player_tracks": len(tracks),
+            "avg_track_length_frames": round(sum(track_lengths) / len(track_lengths), 2)
+            if track_lengths
+            else 0.0,
+            "max_track_length_frames": max(track_lengths) if track_lengths else 0,
+        },
+        "tracks": tracks,
+        "frames": frame_metrics,
+    }
+
+    with stats_path.open("w", encoding="utf-8") as file:
+        json.dump(payload, file, indent=2)
+
+
 def annotate_frame(frame, persons, ball, ball_from_memory, status, frame_index, fps_estimate, config):
     visual_scale = annotation_resolution_scale(frame, config)
     base_person_label_scale = 0.45
@@ -348,9 +593,10 @@ def annotate_frame(frame, persons, ball, ball_from_memory, status, frame_index, 
 
     for person in persons:
         draw_person_marker(frame, person, config)
+        person_label = f"#{person.track_id} {person.conf:.2f}" if person.track_id is not None else f"person {person.conf:.2f}"
         draw_label(
             frame,
-            f"person {person.conf:.2f}",
+            person_label,
             person.x1,
             person.y2 + person_label_offset,
             (30, 120, 50),
@@ -375,12 +621,14 @@ def main():
 
     input_path = Path(args.input)
     output_path = make_output_path(input_path, args.output)
+    stats_path = make_stats_path(input_path, args.stats_output, config)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     if not input_path.exists():
         raise FileNotFoundError(f"No existe el video de entrada: {input_path}")
 
-    model = YOLO(args.model)
+    detection_model = YOLO(args.model)
+    tracking_model = YOLO(args.model) if args.tracking else detection_model
     cap = cv2.VideoCapture(str(input_path))
     if not cap.isOpened():
         raise RuntimeError(f"No se pudo abrir el video: {input_path}")
@@ -402,11 +650,12 @@ def main():
         raise RuntimeError(f"No se pudo crear el video de salida: {output_path}")
 
     print("======================================")
-    print("football-ai-analysis | video_analise v1")
+    print("football-ai-analysis | video_analise v2")
     print("======================================")
     print(f"Entrada: {input_path}")
     print(f"Salida:  {output_path}")
     print(f"Modelo:  {args.model}")
+    print(f"Tracking: {'on' if args.tracking else 'off'} | Tracker: {args.tracker if args.tracking else '-'}")
     print(f"Frames:  {total_frames} | FPS: {fps:.2f} | Size: {width}x{height}")
     print()
 
@@ -415,6 +664,8 @@ def main():
     status_counts = {}
     ball_visible_frames = 0
     ball_memory = BallMemory()
+    track_summaries = {}
+    frame_metrics = []
     start_tick = cv2.getTickCount()
 
     while True:
@@ -427,15 +678,41 @@ def main():
 
         if should_process:
             processed_frames += 1
-            results = model.predict(
-                source=frame,
-                imgsz=args.imgsz,
+            common_infer_kwargs = {
+                "source": frame,
+                "imgsz": args.imgsz,
+                "device": args.device,
+                "verbose": False,
+            }
+            detection_results = detection_model.predict(
+                **common_infer_kwargs,
                 conf=args.model_conf,
                 classes=[0, 32],
-                device=args.device,
-                verbose=False,
             )
-            persons, ball_candidates = detections_from_result(results[0], args, config, width, height)
+            persons, ball_candidates = detections_from_result(
+                detection_results[0],
+                args,
+                config,
+                width,
+                height,
+            )
+
+            if args.tracking:
+                tracking_results = tracking_model.track(
+                    **common_infer_kwargs,
+                    conf=args.person_conf,
+                    classes=[0],
+                    persist=True,
+                    tracker=args.tracker,
+                )
+                tracked_persons, _ = detections_from_result(
+                    tracking_results[0],
+                    args,
+                    config,
+                    width,
+                    height,
+                )
+                assign_track_ids(persons, tracked_persons, config)
             selected_ball = select_ball(ball_candidates, ball_memory)
             ball_from_memory = False
 
@@ -472,6 +749,18 @@ def main():
                 ball_from_memory = False
 
             status_counts[status] = status_counts.get(status, 0) + 1
+            update_track_summaries(track_summaries, persons, frame_index, frame, config)
+
+            if bool(nested_get(config, ["stats", "write_frame_metrics"], True)):
+                frame_metrics.append(
+                    build_frame_metrics(
+                        frame_index,
+                        status,
+                        persons,
+                        selected_ball,
+                        ball_from_memory,
+                    )
+                )
 
             elapsed = (cv2.getTickCount() - start_tick) / cv2.getTickFrequency()
             fps_estimate = processed_frames / elapsed if elapsed > 0 else 0.0
@@ -501,10 +790,26 @@ def main():
     print(f"Frames leidos: {frame_index}")
     print(f"Frames analizados con YOLO: {processed_frames}")
     print(f"Frames con balon visible: {ball_visible_frames}")
+    print(f"Tracks de jugadores unicos: {len(track_summaries)}")
     for status, count in sorted(status_counts.items()):
         percentage = (count / processed_frames) * 100 if processed_frames else 0.0
         print(f"{status}: {count} ({percentage:.2f}%)")
     print(f"Video generado: {output_path}")
+
+    if bool(nested_get(config, ["stats", "enabled"], True)):
+        write_stats(
+            stats_path,
+            input_path,
+            output_path,
+            args,
+            frame_index,
+            processed_frames,
+            ball_visible_frames,
+            status_counts,
+            track_summaries,
+            frame_metrics,
+        )
+        print(f"Metricas generadas: {stats_path}")
 
 
 if __name__ == "__main__":

@@ -30,7 +30,7 @@ C:\Users\javie\miniconda3\envs\football-ai\python.exe -c "import torch, ultralyt
 C:\Users\javie\miniconda3\envs\football-ai\python.exe diagnose_clip.py
 ```
 
-## Ejecutar analisis v1
+## Ejecutar analisis
 
 ```powershell
 C:\Users\javie\miniconda3\envs\football-ai\python.exe video_analise.py --input videos/clips/prepared/clip_00m00s_20s.mp4
@@ -40,6 +40,12 @@ Salida por defecto:
 
 ```text
 videos/output/clip_00m00s_20s_analysed.mp4
+```
+
+El analisis tambien genera metricas JSON para el panel grafico futuro:
+
+```text
+videos/output/stats/clip_00m00s_20s_stats.json
 ```
 
 ## Descargar otro video de SoccerNet
@@ -84,10 +90,31 @@ Implementado:
   - `UNKNOWN`
 - Escritura de video anotado en `videos/output`.
 
+## Estado de v2
+
+Implementado inicialmente:
+
+- Tracking de jugadores con ByteTrack.
+- `track_id` visible sobre cada jugador detectado cuando existe asociacion.
+- Deteccion normal y tracking separados para no degradar la deteccion del balon.
+- Matching por IoU entre detecciones de personas y tracks.
+- Memoria basica por jugador:
+  - primer frame visto;
+  - ultimo frame visto;
+  - frames vistos;
+  - confianza media;
+  - distancia aproximada recorrida en pixeles;
+  - color medio de camiseta en BGR/RGB/HSV.
+- Exportacion de metricas JSON por clip para alimentar un futuro panel HTML/CSS/JS.
+
+Pendiente dentro de v2:
+
+- Comparacion formal ByteTrack vs BoT-SORT.
+- Afinar estabilidad de IDs.
+- Agrupar colores de camiseta por equipo.
+
 Pendiente para versiones posteriores:
 
-- Tracking de jugadores.
-- Clasificacion de equipos por color.
 - Posesion visible y pases aproximados.
 - Posibles salidas de campo y goles.
 - Comparar los mismos clips en 720p desde SoccerNet para mejorar la deteccion del balon.

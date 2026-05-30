@@ -65,9 +65,18 @@ Analizar clips cortos de futbol de SoccerNet. El sistema debe detectar jugadores
 - Dibujo de cajas, balon y texto de estado.
 - Guardado en `videos/output/`.
 
+### video_analise.py v2
+
+- Tracking de jugadores con ByteTrack como tracker inicial.
+- La comparacion con BoT-SORT queda dentro de v2, pero despues de estabilizar ByteTrack.
+- Mantener deteccion normal separada de tracking para no degradar la deteccion del balon.
+- Mostrar `track_id` sobre el jugador cuando exista asociacion.
+- Asociar detecciones de personas y tracks mediante IoU.
+- Mantener memoria basica por `track_id`, incluyendo color medio de camiseta.
+- Exportar metricas JSON por clip para alimentar un futuro panel grafico HTML/CSS/JS.
+
 ### Versiones posteriores
 
-- v2: tracking de jugadores con ByteTrack/BoT-SORT.
 - v3: posesion visible y pases aproximados.
 - v4: posibles fueras, posibles goles y clips desde anotaciones SoccerNet.
 
