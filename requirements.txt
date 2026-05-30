@@ -1,0 +1,14 @@
+torch
+torchvision
+ultralytics
+opencv-python
+numpy
+scikit-learn
+pyyaml
+tqdm
+supervision
+SoccerNet
+python-dateutil
+colorama
+pygments
+psutil

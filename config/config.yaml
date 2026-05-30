@@ -1,0 +1,42 @@
+project:
+  name: football-ai-analysis
+
+video:
+  input_path: videos/clips/prepared/clip_00m00s_20s.mp4
+  output_dir: videos/output
+  process_every_n_frames: 1
+
+model:
+  path: yolo26n.pt
+  device: cpu
+  imgsz: 640
+  model_conf: 0.05
+
+classes:
+  person_class_id: 0
+  ball_class_id: 32
+
+thresholds:
+  person_conf: 0.25
+  ball_conf: 0.05
+
+frame_analysis:
+  min_green_ratio: 0.25
+  min_players_for_play_frame: 4
+  max_person_area_ratio_for_closeup: 0.35
+  ball_memory_frames: 12
+
+tracking:
+  enabled: false
+  tracker: bytetrack.yaml
+
+team_classification:
+  enabled: false
+
+events:
+  passes:
+    enabled: false
+  out_of_play:
+    enabled: false
+  goals:
+    enabled: false
