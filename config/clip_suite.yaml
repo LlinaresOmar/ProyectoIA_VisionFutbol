@@ -1,0 +1,93 @@
+profiles:
+  default:
+    model: yolo26n.pt
+    imgsz: 800
+    model_conf: 0.05
+    person_conf: 0.25
+    ball_conf: 0.10
+    tracker: bytetrack.yaml
+    process_every: 1
+    min_green_ratio: 0.30
+    min_players_for_play_frame: 4
+    max_person_area_ratio_for_closeup: 0.25
+    team_render_mode: two-pass
+  full_pitch_events:
+    imgsz: 960
+    min_green_ratio: 0.25
+    min_players_for_play_frame: 6
+    team_render_mode: two-pass
+  tv_detection:
+    imgsz: 800
+    min_green_ratio: 0.20
+    min_players_for_play_frame: 3
+    max_person_area_ratio_for_closeup: 0.35
+    team_render_mode: two-pass
+
+clips:
+  - id: full_pitch_128058_ball_visible
+    source: videos/input/test/128058_panorama_1st_half_cortado.mp4
+    start: "16:45"
+    duration: 10
+    source_type: full_pitch
+    profile: full_pitch_events
+    expected_quality: tactical_events
+    objective: Balon visible en campo y tracking estable para pases aproximados.
+
+  - id: full_pitch_128058_false_positive_control
+    source: videos/input/test/128058_panorama_1st_half_cortado.mp4
+    start: "12:40"
+    duration: 10
+    source_type: full_pitch
+    profile: full_pitch_events
+    expected_quality: tactical_events
+    objective: Control de falsos positivos de balon en banda inferior y texto del campo.
+
+  - id: full_pitch_132831_wide_angle
+    source: videos/input/test/132831_panorama_1st_half_cortado.mp4
+    start: "10:00"
+    duration: 10
+    source_type: full_pitch
+    profile: full_pitch_events
+    expected_quality: tactical_events
+    objective: Camara panoramica con mas deformacion optica para comparar robustez.
+
+  - id: tv_720_general_play
+    source: videos/input/1_720p.mkv
+    start: "05:00"
+    duration: 12
+    source_type: tv_broadcast
+    profile: tv_detection
+    expected_quality: visual_only
+    objective: Retransmision TV en plano general, util para deteccion visual pero inestable para tracking tactico.
+
+  - id: tv_720_area_play
+    source: videos/input/1_720p.mkv
+    start: "33:00"
+    duration: 12
+    source_type: tv_broadcast
+    profile: tv_detection
+    expected_quality: visual_only
+    objective: Retransmision TV cerca de porteria o area para evaluar deteccion de balon y personas.
+
+  - id: tv_720_camera_change
+    source: videos/input/1_720p.mkv
+    start: "25:00"
+    duration: 12
+    source_type: tv_broadcast
+    profile: tv_detection
+    expected_quality: visual_only
+    objective: Caso dificil con cambios de plano donde los tracks se fragmentan.
+
+  - id: tv_prepared_logo_false_positive
+    clip: videos/clips/prepared/clip_05m00s_20s.mp4
+    source_type: tv_broadcast
+    profile: tv_detection
+    expected_quality: visual_only
+    objective: Clip preparado con falso positivo historico del logo de TV en esquina inferior derecha.
+
+  - id: tv_prepared_close_up
+    clip: videos/clips/prepared/primer_plano_12m30s_20s.mp4
+    source_type: tv_broadcast
+    profile: tv_detection
+    expected_quality: visual_only
+    objective: Plano corto de TV para demostrar limite de tracking y posesion con close-ups.
