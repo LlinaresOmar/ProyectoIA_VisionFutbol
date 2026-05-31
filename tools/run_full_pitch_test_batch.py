@@ -122,6 +122,7 @@ def load_experiments(args: argparse.Namespace) -> list[dict]:
                 "min_green_ratio": args.min_green_ratio,
                 "min_players_for_play_frame": args.min_players_for_play_frame,
                 "max_person_area_ratio_for_closeup": args.max_person_area_ratio_for_closeup,
+                "team_render_mode": args.team_render_mode,
             }
         ]
 
@@ -154,6 +155,7 @@ def load_experiments(args: argparse.Namespace) -> list[dict]:
                 "max_person_area_ratio_for_closeup",
                 args.max_person_area_ratio_for_closeup,
             ),
+            "team_render_mode": experiment.get("team_render_mode", args.team_render_mode),
         }
         normalized.append(item)
 
@@ -231,6 +233,66 @@ def comparison_metrics(stats_path: Path, expected_min: int, expected_max: int) -
     }
 
 
+def profile_score(profile: str, metrics: dict) -> float:
+    if profile == "ball_detection":
+        return metrics["ball_score"]
+    if profile == "player_tracking":
+        return metrics["player_score"]
+    return (metrics["player_score"] + metrics["ball_score"]) / 2
+
+
+def mean(values: list[float]) -> float:
+    values = [value for value in values if value is not None]
+    return sum(values) / len(values) if values else 0.0
+
+
+def ranked_experiments(
+    artifacts: list[dict],
+    expected_players_min: int,
+    expected_players_max: int,
+) -> list[dict]:
+    groups: dict[tuple[str, str], list[dict]] = {}
+    for artifact in artifacts:
+        key = (artifact.get("experiment", "-"), artifact.get("profile", "-"))
+        metrics = comparison_metrics(
+            Path(artifact["stats_json"]),
+            expected_players_min,
+            expected_players_max,
+        )
+        groups.setdefault(key, []).append(metrics)
+
+    rows = []
+    for (experiment, profile), metrics_list in groups.items():
+        player_score = mean([item["player_score"] for item in metrics_list])
+        ball_score = mean([item["ball_score"] for item in metrics_list])
+        score = profile_score(
+            profile,
+            {"player_score": player_score, "ball_score": ball_score},
+        )
+        rows.append(
+            {
+                "experiment": experiment,
+                "profile": profile,
+                "clips": len(metrics_list),
+                "score": round(score, 2),
+                "player_score": round(player_score, 2),
+                "ball_score": round(ball_score, 2),
+                "avg_persons": round(mean([item["avg_persons"] for item in metrics_list]), 2),
+                "expected_players_pct": round(
+                    mean([item["expected_players_pct"] for item in metrics_list]),
+                    2,
+                ),
+                "ball_pct": round(mean([item["ball_pct"] for item in metrics_list]), 2),
+                "longest_ball_gap_frames": round(
+                    mean([item["longest_ball_gap_frames"] for item in metrics_list]),
+                    2,
+                ),
+            }
+        )
+
+    return sorted(rows, key=lambda item: item["score"], reverse=True)
+
+
 def write_index(
     artifacts: list[dict],
     reports_dir: Path,
@@ -240,6 +302,14 @@ def write_index(
     reports_dir.mkdir(parents=True, exist_ok=True)
     index_path = reports_dir / "index.html"
     rows = []
+    ranking = ranked_experiments(
+        artifacts,
+        expected_players_min,
+        expected_players_max,
+    )
+    ranking_path = reports_dir / "comparison_ranking.json"
+    ranking_path.write_text(json.dumps(ranking, indent=2), encoding="utf-8")
+    ranking_rows = []
 
     for artifact in artifacts:
         clip_path = Path(artifact["clip"])
@@ -256,11 +326,7 @@ def write_index(
             f"{key}: {value}" for key, value in summary.get("status_counts", {}).items()
         )
         profile = artifact.get("profile", "-")
-        profile_score = (
-            metrics["ball_score"]
-            if profile == "ball_detection"
-            else metrics["player_score"]
-        )
+        score = profile_score(profile, metrics)
 
         rows.append(
             f"""
@@ -273,11 +339,30 @@ def write_index(
               <td>{metrics["avg_persons"]:.1f}</td>
               <td>{metrics["expected_players_pct"]:.1f}%</td>
               <td>{metrics["ball_pct"]:.1f}%</td>
-              <td>{profile_score:.1f}</td>
+              <td>{score:.1f}</td>
               <td>{escape(statuses or "-")}</td>
               <td><a href="{relative_link(analysed_path, reports_dir)}">video</a></td>
               <td><a href="{relative_link(report_path, reports_dir)}">panel</a></td>
               <td><a href="{relative_link(stats_path, reports_dir)}">json</a></td>
+            </tr>
+            """
+        )
+
+    for index, item in enumerate(ranking, start=1):
+        ranking_rows.append(
+            f"""
+            <tr>
+              <td>{index}</td>
+              <td>{escape(item["experiment"])}</td>
+              <td>{escape(item["profile"])}</td>
+              <td>{item["clips"]}</td>
+              <td>{item["score"]:.1f}</td>
+              <td>{item["player_score"]:.1f}</td>
+              <td>{item["ball_score"]:.1f}</td>
+              <td>{item["avg_persons"]:.1f}</td>
+              <td>{item["expected_players_pct"]:.1f}%</td>
+              <td>{item["ball_pct"]:.1f}%</td>
+              <td>{item["longest_ball_gap_frames"]:.1f}</td>
             </tr>
             """
         )
@@ -309,6 +394,10 @@ def write_index(
       margin: 0 0 24px;
       color: #626262;
     }}
+    h2 {{
+      margin: 28px 0 12px;
+      font-size: 20px;
+    }}
     table {{
       width: 100%;
       border-collapse: collapse;
@@ -338,6 +427,28 @@ def write_index(
   <main>
     <h1>Full Pitch Test Batch</h1>
     <p>Resumen navegable de clips panoramicos procesados con video_analise.py v2.</p>
+    <h2>Ranking global por perfil</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Experimento</th>
+          <th>Perfil</th>
+          <th>Clips</th>
+          <th>Score perfil</th>
+          <th>Score jugadores</th>
+          <th>Score balon</th>
+          <th>Jugadores media</th>
+          <th>Frames {expected_players_min}-{expected_players_max}</th>
+          <th>Balon visible</th>
+          <th>Gap balon medio</th>
+        </tr>
+      </thead>
+      <tbody>
+        {''.join(ranking_rows)}
+      </tbody>
+    </table>
+    <h2>Detalle por clip</h2>
     <table>
       <thead>
         <tr>
@@ -493,6 +604,12 @@ def build_parser() -> argparse.ArgumentParser:
         type=float,
         default=0.25,
         help="Close-up threshold passed to video_analise.py.",
+    )
+    parser.add_argument(
+        "--team-render-mode",
+        choices=["single-pass", "two-pass"],
+        default="single-pass",
+        help="How video_analise.py renders team colors in the output video.",
     )
     parser.add_argument(
         "--experiment-config",
@@ -659,6 +776,7 @@ def main() -> None:
                         "--max-person-area-ratio-for-closeup",
                         experiment.get("max_person_area_ratio_for_closeup"),
                     )
+                    experiment_arg(command, "--team-render-mode", experiment.get("team_render_mode"))
                     run_command(command, args.dry_run)
 
                 if args.overwrite or not report_path.exists():
