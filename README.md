@@ -69,14 +69,15 @@ La suite curada compara fuentes panoramicas full-pitch con retransmision TV:
 ```powershell
 C:\Users\javie\miniconda3\envs\football-ai\python.exe tools/run_clip_suite.py `
   --suite config/clip_suite.yaml `
-  --clip-limit 2
+  --output-dir videos/output/final_demo `
+  --clips-dir videos/clips/final_demo `
+  --overwrite
 ```
 
-Sin `--clip-limit`, procesa los 8 clips configurados en `config/clip_suite.yaml`.
 El indice final queda en:
 
 ```text
-videos/output/mixed_suite/index.html
+videos/output/final_demo/index.html
 ```
 
 Este panel comparativo incluye:
@@ -88,6 +89,22 @@ Este panel comparativo incluye:
 - frames analizables;
 - pases detectados por equipo;
 - conclusion automatica: `apto para eventos tacticos`, `solo deteccion visual` o `no recomendable`.
+
+Para crear un mosaico visual rapido de todos los videos anotados:
+
+```powershell
+C:\Users\javie\miniconda3\envs\football-ai\python.exe tools/create_contact_sheet.py `
+  --input videos/output/final_demo `
+  --output-dir videos/output/final_demo/contact_sheets `
+  --overwrite
+```
+
+Para abrir los informes con enlaces de video en Chrome:
+
+```powershell
+C:\Users\javie\miniconda3\envs\football-ai\python.exe tools/serve_output.py `
+  --directory videos/output/final_demo
+```
 
 ## Batch full-pitch para calibracion
 

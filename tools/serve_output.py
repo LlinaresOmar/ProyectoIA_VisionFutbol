@@ -1,4 +1,4 @@
-"""Serve generated full-pitch reports over localhost."""
+"""Serve generated reports over localhost."""
 
 from __future__ import annotations
 
@@ -17,13 +17,13 @@ def safe_print(message: str) -> None:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Serve videos/output/full_pitch_test so Chrome can open video links safely."
+        description="Serve a generated output directory so Chrome can open video links safely."
     )
     parser.add_argument(
         "--directory",
         type=Path,
-        default=Path("videos/output/full_pitch_test"),
-        help="Directory to serve. Defaults to videos/output/full_pitch_test.",
+        default=Path("videos/output/final_demo"),
+        help="Directory to serve. Defaults to videos/output/final_demo.",
     )
     parser.add_argument("--host", default="127.0.0.1", help="Host to bind.")
     parser.add_argument("--port", type=int, default=8765, help="Port to bind.")
