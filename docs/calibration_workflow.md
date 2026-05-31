@@ -129,8 +129,10 @@ the service in a real venue.
 The current implementation exports `role` per track:
 
 - `team_1` and `team_2` come from jersey-color clusters;
-- `referee_candidate` is a stable color outlier that matches broad referee-kit
-  color rules;
+- `goalkeeper_candidate` is a stable color outlier that stays near goal or
+  defensive-edge zones;
+- `referee_candidate` is a stable color outlier favored in more central/interior
+  areas;
 - `unknown` is kept when there is not enough evidence.
 
 Passes are exported as `pass_candidate` events. A pass candidate is counted when
@@ -161,12 +163,13 @@ second pass reopens the same video and renders team overlays:
 
 - `team_1`: blue marker;
 - `team_2`: red marker;
+- `goalkeeper_candidate`: yellow/cyan marker;
 - `referee_candidate`: white marker;
 - unassigned tracks: white marker.
 
-This is still an approximation for referees. A true referee class should be
-added later using either manual calibration or a small classifier trained on
-referee kits.
+This is still an approximation for special roles. A true referee/goalkeeper
+separation should be added later using either manual calibration or a small
+classifier trained on role-specific kits and positions.
 
 ## Next implementation blocks
 

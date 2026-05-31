@@ -5,7 +5,7 @@ Prototipo en Python para analizar clips de futbol mediante vision artificial y g
 El cierre del proyecto se centra en una demo tecnica defendible:
 
 - deteccion de jugadores y agrupacion heuristica por equipo;
-- deteccion heuristica de arbitro como track outlier y pintado en blanco;
+- separacion heuristica entre portero candidato y arbitro candidato;
 - conteo aproximado de pases por equipo mediante asociacion balon-jugador;
 - comparativa entre camara panoramica full-pitch y retransmision TV.
 
@@ -41,8 +41,8 @@ videos/output/stats/<clip>_stats.json
 ```
 
 El modo `two-pass` realiza una primera pasada para deteccion, tracking, equipos,
-roles y eventos; despues reabre el video para pintar equipos, arbitro y
-contadores de pases con la informacion ya consolidada.
+roles y eventos; despues reabre el video para pintar equipos, porteros,
+arbitro y contadores de pases con la informacion ya consolidada.
 
 ## Panel HTML de un clip
 
@@ -108,8 +108,8 @@ los mejores candidatos.
 - `track_id` visible.
 - Memoria de color de camiseta por track.
 - Clustering heuristico `team_1`/`team_2`.
-- Roles por track: `team_1`, `team_2`, `referee_candidate`, `unknown`.
-- Arbitro pintado en blanco cuando se detecta como outlier estable.
+- Roles por track: `team_1`, `team_2`, `goalkeeper_candidate`, `referee_candidate`, `unknown`.
+- Portero candidato pintado en amarillo/cian y arbitro candidato pintado en blanco.
 - Pases candidatos por equipo mediante cambio de poseedor dentro del mismo equipo.
 - Overlay de video con pases y posesion.
 - JSON compatible con paneles anteriores y ampliado con `role`, `possession` y `events`.
@@ -122,9 +122,11 @@ jugador y en cambios de poseedor entre tracks del mismo equipo. No usa aun un
 modelo entrenado de contacto balon-jugador ni calibracion metrica real del
 campo.
 
-La deteccion de arbitro tambien es heuristica: busca tracks estables cuyo color
-medio queda fuera de los clusters de equipo y coincide con reglas amplias de
-color de arbitro. Puede fallar con equipaciones negras, blancas o amarillas.
+La separacion entre portero y arbitro tambien es heuristica: ambos parten de
+tracks estables cuyo color medio queda fuera de los clusters de equipo. El
+portero se favorece cerca de zonas de porteria o bordes defensivos, mientras el
+arbitro se favorece en zonas interiores. Puede fallar con cambios de plano,
+equipaciones similares o detecciones parciales.
 
 Los clips de TV con cambios de plano sirven para mostrar deteccion visual, pero
 no son una fuente fiable para tracking largo, posesion ni pases. La camara
