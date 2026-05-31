@@ -1322,6 +1322,10 @@ def annotate_frame(
     )
     show_untracked_persons = bool(nested_get(config, ["annotation", "show_untracked_persons"], False))
     show_person_confidence = bool(nested_get(config, ["annotation", "show_person_confidence"], False))
+    ball_label_alpha = float(nested_get(config, ["annotation", "ball_label_background_alpha"], person_label_alpha))
+    ball_label_offset = int(
+        round(int(nested_get(config, ["annotation", "ball_label_offset_px"], 8)) * visual_scale)
+    )
 
     for person in persons:
         if person.track_id is None and not show_untracked_persons:
@@ -1357,7 +1361,15 @@ def annotate_frame(
         cv2.rectangle(frame, (ball.x1, ball.y1), (ball.x2, ball.y2), color, 2)
         cv2.circle(frame, (cx, cy), 5, color, -1)
         label = f"ball {ball.conf:.2f}" if not ball_from_memory else "ball memory"
-        draw_label(frame, label, ball.x1, ball.y1, color, fg_color=(0, 0, 0))
+        draw_label(
+            frame,
+            label,
+            ball.x2 + ball_label_offset,
+            ball.y2 + ball_label_offset,
+            color,
+            fg_color=(0, 0, 0),
+            bg_alpha=ball_label_alpha,
+        )
 
     draw_status_panel(frame, status, frame_index, persons, ball, ball_from_memory, fps_estimate)
     draw_event_panel(frame, event_state)
