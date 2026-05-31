@@ -136,6 +136,8 @@ En este proyecto se ha trabajado mas bien con una bateria de pruebas o suite de 
 
 El flujo de trabajo del sistema puede resumirse asi:
 
+![Flujo general del sistema](diagrams/system_pipeline.svg)
+
 1. Se recibe un video de entrada.
 2. Se procesa frame a frame.
 3. YOLO detecta personas y balon.
@@ -202,6 +204,8 @@ La conclusion es que no todos los videos sirven para todo. La television puede s
 ## 11. Suite final de pruebas
 
 Para ordenar las pruebas se creo una suite mixta definida en `config/clip_suite.yaml`. Esta suite incluye clips full-pitch y clips de retransmision TV. Cada clip tiene un objetivo concreto, por ejemplo:
+
+![Suite de evaluacion mixta](diagrams/evaluation_suite.svg)
 
 - balon visible en campo;
 - control de falsos positivos;
@@ -300,6 +304,8 @@ Esta comparacion visual ayuda a explicar por que la fuente full-pitch es mas est
 ## 13. Artefactos generados
 
 La ejecucion del sistema genera varios artefactos:
+
+![Artefactos generados](diagrams/artifacts_overview.svg)
 
 - **Videos anotados**: muestran detecciones, identificadores, balon y contadores.
 - **JSON de metricas**: contienen datos estructurados para cada clip.

@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1180" height="360" viewBox="0 0 1180 360" role="img" aria-labelledby="title desc">
+  <title id="title">Flujo general del sistema</title>
+  <desc id="desc">Diagrama de flujo desde video de entrada hasta video anotado, JSON e informe HTML.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#334155"/>
+    </marker>
+    <style>
+      .box { fill: #ffffff; stroke: #334155; stroke-width: 2; rx: 8; }
+      .main { fill: #e8f7f0; stroke: #176b5d; }
+      .out { fill: #fff7e6; stroke: #b7791f; }
+      .text { font: 18px Arial, Helvetica, sans-serif; fill: #17202a; text-anchor: middle; }
+      .small { font: 14px Arial, Helvetica, sans-serif; fill: #475569; text-anchor: middle; }
+      .arrow { stroke: #334155; stroke-width: 2.5; fill: none; marker-end: url(#arrow); }
+      .title { font: 24px Arial, Helvetica, sans-serif; font-weight: 700; fill: #111827; }
+    </style>
+  </defs>
+  <rect width="1180" height="360" fill="#f8fafc"/>
+  <text x="40" y="42" class="title">Flujo general del sistema</text>
+
+  <rect x="40" y="95" width="145" height="82" class="box"/>
+  <text x="112" y="129" class="text">Video</text>
+  <text x="112" y="154" class="small">entrada</text>
+
+  <rect x="235" y="95" width="145" height="82" class="box main"/>
+  <text x="307" y="124" class="text">YOLO</text>
+  <text x="307" y="149" class="small">personas + balon</text>
+
+  <rect x="430" y="95" width="145" height="82" class="box main"/>
+  <text x="502" y="124" class="text">Filtros</text>
+  <text x="502" y="149" class="small">umbrales + zonas</text>
+
+  <rect x="625" y="95" width="145" height="82" class="box main"/>
+  <text x="697" y="124" class="text">Tracking</text>
+  <text x="697" y="149" class="small">track_id</text>
+
+  <rect x="820" y="95" width="145" height="82" class="box main"/>
+  <text x="892" y="124" class="text">Equipos</text>
+  <text x="892" y="149" class="small">color + roles</text>
+
+  <rect x="625" y="235" width="145" height="82" class="box main"/>
+  <text x="697" y="264" class="text">Eventos</text>
+  <text x="697" y="289" class="small">posesion + pases</text>
+
+  <rect x="820" y="235" width="145" height="82" class="box out"/>
+  <text x="892" y="264" class="text">Video</text>
+  <text x="892" y="289" class="small">anotado</text>
+
+  <rect x="995" y="165" width="145" height="82" class="box out"/>
+  <text x="1067" y="194" class="text">JSON + HTML</text>
+  <text x="1067" y="219" class="small">metricas</text>
+
+  <path d="M185 136 H235" class="arrow"/>
+  <path d="M380 136 H430" class="arrow"/>
+  <path d="M575 136 H625" class="arrow"/>
+  <path d="M770 136 H820" class="arrow"/>
+  <path d="M892 177 V235" class="arrow"/>
+  <path d="M820 276 H770" class="arrow"/>
+  <path d="M770 276 H820" class="arrow"/>
+  <path d="M965 136 C1020 136 1015 190 995 198" class="arrow"/>
+  <path d="M965 276 C1020 276 1015 225 995 213" class="arrow"/>
+</svg>

@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1180" height="390" viewBox="0 0 1180 390" role="img" aria-labelledby="title desc">
+  <title id="title">Artefactos generados</title>
+  <desc id="desc">Diagrama de los artefactos producidos por la suite final.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#334155"/>
+    </marker>
+    <style>
+      .center { fill: #e8f7f0; stroke: #176b5d; stroke-width: 2; rx: 10; }
+      .box { fill: #ffffff; stroke: #334155; stroke-width: 2; rx: 8; }
+      .text { font: 18px Arial, Helvetica, sans-serif; fill: #17202a; text-anchor: middle; }
+      .small { font: 14px Arial, Helvetica, sans-serif; fill: #475569; text-anchor: middle; }
+      .title { font: 24px Arial, Helvetica, sans-serif; font-weight: 700; fill: #111827; }
+      .arrow { stroke: #334155; stroke-width: 2.5; fill: none; marker-end: url(#arrow); }
+    </style>
+  </defs>
+  <rect width="1180" height="390" fill="#f8fafc"/>
+  <text x="40" y="42" class="title">Artefactos generados por la demo final</text>
+
+  <rect x="470" y="145" width="240" height="92" class="center"/>
+  <text x="590" y="181" class="text">Suite final</text>
+  <text x="590" y="207" class="small">videos/output/final_demo</text>
+
+  <rect x="65" y="90" width="210" height="72" class="box"/>
+  <text x="170" y="119" class="text">Videos anotados</text>
+  <text x="170" y="143" class="small">MP4 H.264</text>
+
+  <rect x="65" y="245" width="210" height="72" class="box"/>
+  <text x="170" y="274" class="text">Contact sheets</text>
+  <text x="170" y="298" class="small">revision rapida</text>
+
+  <rect x="485" y="35" width="210" height="72" class="box"/>
+  <text x="590" y="64" class="text">Manifest JSON</text>
+  <text x="590" y="88" class="small">trazabilidad</text>
+
+  <rect x="905" y="90" width="210" height="72" class="box"/>
+  <text x="1010" y="119" class="text">Paneles HTML</text>
+  <text x="1010" y="143" class="small">metricas por clip</text>
+
+  <rect x="905" y="245" width="210" height="72" class="box"/>
+  <text x="1010" y="274" class="text">Indice final</text>
+  <text x="1010" y="298" class="small">comparacion global</text>
+
+  <path d="M470 175 C380 150 335 127 275 126" class="arrow"/>
+  <path d="M470 205 C380 235 335 277 275 281" class="arrow"/>
+  <path d="M590 145 V107" class="arrow"/>
+  <path d="M710 175 C800 150 845 127 905 126" class="arrow"/>
+  <path d="M710 205 C800 235 845 277 905 281" class="arrow"/>
+</svg>
