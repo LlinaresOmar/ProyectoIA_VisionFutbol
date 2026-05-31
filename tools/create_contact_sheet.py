@@ -7,6 +7,7 @@ import math
 from pathlib import Path
 
 import cv2
+import numpy as np
 
 
 def parse_args() -> argparse.Namespace:
@@ -119,8 +120,7 @@ def make_contact_sheet(frames: list, columns: int):
     columns = max(1, columns)
     rows = int(math.ceil(len(frames) / columns))
     thumb_height, thumb_width = frames[0].shape[:2]
-    sheet = 255 * frames[0].copy()
-    sheet = cv2.resize(sheet, (thumb_width * columns, thumb_height * rows))
+    sheet = np.full((thumb_height * rows, thumb_width * columns, 3), 255, dtype=np.uint8)
 
     for index, frame in enumerate(frames):
         row = index // columns

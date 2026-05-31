@@ -45,7 +45,7 @@ clips:
 
   - id: full_pitch_132831_wide_angle
     source: videos/input/test/132831_panorama_1st_half_cortado.mp4
-    start: "10:00"
+    start: "06:00"
     duration: 10
     source_type: full_pitch
     profile: full_pitch_events
