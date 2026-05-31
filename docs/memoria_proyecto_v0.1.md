@@ -247,7 +247,57 @@ C:\Users\javie\miniconda3\envs\football-ai\python.exe tools/create_contact_sheet
 
 Estas imagenes permiten ver de un vistazo varios momentos de cada video sin tener que reproducirlo completo.
 
-## 12. Artefactos generados
+## 12. Herramientas desarrolladas
+
+Ademas del script principal de analisis, durante el proyecto se han creado varias herramientas auxiliares. Esta parte es importante porque el resultado final no depende solo de un modelo de IA, sino de un flujo completo de trabajo.
+
+Las herramientas principales son:
+
+- `video_analise.py`: script principal. Analiza un clip, detecta personas y balon, aplica tracking, genera el video anotado y exporta metricas JSON.
+- `tools/run_clip_suite.py`: ejecuta una suite completa de clips definidos en YAML. Es la herramienta central de la demo final porque permite comparar fuentes de video diferentes de forma repetible.
+- `tools/create_video_clips.py`: permite recortar clips cortos desde videos largos. Fue util para generar pruebas rapidas sin procesar partidos completos.
+- `tools/generate_report_panel.py`: convierte un JSON de metricas en un informe HTML visual.
+- `tools/create_contact_sheet.py`: genera mosaicos de imagenes a partir de los videos anotados. Sirve para revisar de un vistazo si una salida es buena o no.
+- `tools/run_full_pitch_test_batch.py`: permite ejecutar baterias de pruebas sobre videos panoramicos y comparar configuraciones.
+- `tools/compare_trackers.py`: herramienta de apoyo para comparar trackers como ByteTrack y BoT-SORT.
+- `tools/serve_output.py`: levanta un servidor local para abrir los informes HTML y reproducir los videos desde Chrome sin problemas de seguridad del protocolo `file://`.
+
+Estas herramientas hacen que el proyecto sea mas facil de probar, repetir y explicar. En lugar de tener una unica ejecucion manual, se puede lanzar una suite completa, revisar resultados, generar paneles y preparar capturas para la memoria o la defensa.
+
+### 12.1. Contact sheets
+
+Los contact sheets son imagenes compuestas por varios frames del mismo video. En este proyecto se usan para revisar rapidamente los videos anotados sin tener que reproducir cada clip completo.
+
+Por ejemplo, para un video de salida se toman varios frames repartidos a lo largo del clip y se colocan en una unica imagen. Esto permite comprobar rapidamente:
+
+- si los jugadores aparecen marcados;
+- si el balon se detecta;
+- si las etiquetas son legibles;
+- si hay falsos positivos;
+- si un clip de television cambia mucho de plano;
+- si una camara panoramica mantiene mejor la continuidad.
+
+En la demo final se generaron contact sheets para los 8 videos analizados. Estan en:
+
+```text
+videos/output/final_demo/contact_sheets
+```
+
+**Captura recomendada para la memoria:** insertar aqui una imagen de contact sheet full-pitch, por ejemplo:
+
+```text
+videos/output/final_demo/contact_sheets/full_pitch_128058_ball_visible_analysed_contact_sheet.jpg
+```
+
+**Captura recomendada para comparar:** insertar tambien una contact sheet de television, por ejemplo:
+
+```text
+videos/output/final_demo/contact_sheets/tv_720_camera_change_analysed_contact_sheet.jpg
+```
+
+Esta comparacion visual ayuda a explicar por que la fuente full-pitch es mas estable para metricas tacticas, mientras que la television sirve mejor para deteccion visual puntual.
+
+## 13. Artefactos generados
 
 La ejecucion del sistema genera varios artefactos:
 
@@ -272,7 +322,49 @@ Despues se puede acceder desde:
 http://127.0.0.1:8765/index.html
 ```
 
-## 13. Resultados obtenidos
+### 13.1. Capturas recomendadas de artefactos
+
+Para que la memoria no sea solo texto, se recomienda insertar varias capturas de pantalla de la demo final. Las capturas mas utiles serian:
+
+1. **Indice comparativo final**
+
+   Archivo:
+
+   ```text
+   videos/output/final_demo/index.html
+   ```
+
+   Esta captura permite mostrar que el proyecto compara varios clips y fuentes de video en un unico panel.
+
+2. **Panel HTML de un clip full-pitch**
+
+   Ejemplo:
+
+   ```text
+   videos/output/final_demo/full_pitch_events/reports/full_pitch_128058_ball_visible_report.html
+   ```
+
+   Esta captura muestra metricas como frames analizables, balon visible, tracks, equipos y pases candidatos.
+
+3. **Panel HTML de un clip de television**
+
+   Ejemplo:
+
+   ```text
+   videos/output/final_demo/tv_detection/reports/tv_720_camera_change_report.html
+   ```
+
+   Sirve para explicar que la television puede detectar jugadores y balon, pero no mantiene igual de bien la continuidad tactica.
+
+4. **Frame de video anotado**
+
+   Puede capturarse desde cualquier MP4 de `videos/output/final_demo`. Lo ideal es elegir un frame donde se vean varios jugadores con `#track_id`, el balon y los contadores de pases.
+
+5. **Contact sheet**
+
+   Una contact sheet resume visualmente un clip completo y es especialmente util para el tribunal porque permite entender el comportamiento del sistema de un vistazo.
+
+## 14. Resultados obtenidos
 
 El proyecto consigue generar una demo final con varios clips de prueba. En los videos panoramicos se observa mejor continuidad de jugadores y mayor utilidad para eventos tacticos. En los videos de television se detectan jugadores y balon en muchos frames, pero la estabilidad de los tracks es menor y por tanto las metricas tacticas son menos fiables.
 
@@ -280,7 +372,15 @@ Los resultados confirman la hipotesis principal del proyecto: la fuente de video
 
 El sistema tambien consigue mostrar pases aproximados por equipo. Esta parte debe interpretarse como una prueba de concepto, no como una estadistica oficial. Aun asi, es suficiente para demostrar que el pipeline puede evolucionar hacia metricas deportivas mas avanzadas.
 
-## 14. Limitaciones
+Una forma sencilla de presentar los resultados en la defensa es apoyarse en tres elementos visuales:
+
+- el indice final, para mostrar la comparacion global;
+- un video full-pitch, para mostrar tracking y pases;
+- un video de television, para mostrar las limitaciones de una fuente con cambios de plano.
+
+De este modo, el tribunal puede ver tanto lo que el sistema hace bien como las razones tecnicas por las que algunos escenarios son mas dificiles.
+
+## 15. Limitaciones
 
 El proyecto tiene varias limitaciones importantes:
 
@@ -296,7 +396,7 @@ El proyecto tiene varias limitaciones importantes:
 
 Estas limitaciones no invalidan el proyecto. Al contrario, ayudan a explicar que se ha construido un prototipo realista y que se han identificado claramente los pasos necesarios para convertirlo en una solucion mas robusta.
 
-## 15. Roadmap futuro
+## 16. Roadmap futuro
 
 Las mejoras futuras mas importantes serian:
 
@@ -315,7 +415,7 @@ Las mejoras futuras mas importantes serian:
 
 En un escenario profesional, la instalacion ideal seria una o varias camaras fijas elevadas, con vision continua del campo, calibracion por instalacion y una fase previa de pruebas con clips cortos. Este proyecto ya deja preparada la parte de evaluacion y comparacion que permitiria elegir la mejor configuracion para cada campo.
 
-## 16. Conclusion
+## 17. Conclusion
 
 El proyecto ha permitido desarrollar un prototipo completo de analisis de futbol mediante vision artificial. La solucion no se limita a ejecutar un modelo de deteccion, sino que construye un flujo de trabajo completo: preparacion de clips, analisis automatico, tracking, agrupacion de equipos, conteo aproximado de pases, generacion de videos anotados e informes HTML.
 
