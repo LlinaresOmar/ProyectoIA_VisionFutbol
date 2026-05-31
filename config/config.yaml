@@ -48,8 +48,8 @@ ball_filter:
         - "128058*"
         - "128058_*.mp4"
         - "*128058_panorama_1st_half_cortado*"
-      x_min_ratio: 0.93
-      y_min_ratio: 0.54
+      x_min_ratio: 0.84
+      y_min_ratio: 0.38
       x_max_ratio: 1.00
       y_max_ratio: 0.68
   ignore_below_polylines:
