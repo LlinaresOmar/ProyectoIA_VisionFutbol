@@ -639,6 +639,17 @@ def build_frame_metrics(frame_index, status, persons, selected_ball, ball_from_m
         person.track_id for person in persons if person.track_id is not None
     )
     ball_center = selected_ball.center if selected_ball is not None else None
+    person_details = []
+    for person in persons:
+        person_details.append(
+            {
+                "track_id": person.track_id,
+                "conf": round(person.conf, 4),
+                "bbox": [person.x1, person.y1, person.x2, person.y2],
+                "center": list(person.center),
+                "foot": [(person.x1 + person.x2) // 2, person.y2],
+            }
+        )
 
     return {
         "frame": frame_index,
@@ -646,6 +657,7 @@ def build_frame_metrics(frame_index, status, persons, selected_ball, ball_from_m
         "persons": len(persons),
         "tracked_persons": len(active_track_ids),
         "active_track_ids": active_track_ids,
+        "person_details": person_details,
         "ball_visible": selected_ball is not None and not ball_from_memory,
         "ball_from_memory": bool(ball_from_memory),
         "ball_center": list(ball_center) if ball_center else None,
@@ -748,6 +760,209 @@ def assign_team_clusters(tracks, config):
     return tracks, team_info
 
 
+def euclidean(first, second):
+    return math.sqrt(squared_distance(first, second))
+
+
+def hsv_matches_referee(avg_hsv, config):
+    if avg_hsv is None:
+        return False
+
+    role_config = nested_get(config, ["role_classification", "referee_hsv_rules"], {})
+    if not bool(role_config.get("enabled", True)):
+        return False
+
+    hue, saturation, value = avg_hsv
+    yellow = role_config.get("yellow", {})
+    black = role_config.get("black", {})
+    white = role_config.get("white", {})
+
+    is_yellow = (
+        float(yellow.get("h_min", 15)) <= hue <= float(yellow.get("h_max", 45))
+        and saturation >= float(yellow.get("s_min", 60))
+        and value >= float(yellow.get("v_min", 80))
+    )
+    is_black = value <= float(black.get("v_max", 75))
+    is_white = (
+        saturation <= float(white.get("s_max", 55))
+        and value >= float(white.get("v_min", 150))
+    )
+    return bool(is_yellow or is_black or is_white)
+
+
+def assign_track_roles(tracks, team_info, config):
+    if not bool(nested_get(config, ["role_classification", "enabled"], True)):
+        for track in tracks:
+            track["role"] = track.get("team_id") or "unknown"
+        return tracks
+
+    min_frames = int(nested_get(config, ["role_classification", "referee_min_frames"], 15))
+    min_samples = int(nested_get(config, ["role_classification", "referee_min_jersey_samples"], 4))
+    min_color_distance = float(
+        nested_get(config, ["role_classification", "referee_min_color_distance"], 85.0)
+    )
+    mark_unassigned = bool(
+        nested_get(config, ["role_classification", "mark_stable_unassigned_as_referee"], False)
+    )
+    centroids = [
+        info.get("avg_rgb")
+        for _, info in sorted(team_info.items())
+        if info.get("avg_rgb") is not None
+    ]
+
+    for track in tracks:
+        team_id = track.get("team_id")
+        role = team_id or "unknown"
+        frames_seen = int(track.get("frames_seen", 0))
+        samples = int(track.get("jersey_samples", 0))
+        avg_rgb = track.get("avg_jersey_rgb")
+        avg_hsv = track.get("avg_jersey_hsv")
+        stable_enough = frames_seen >= min_frames and samples >= min_samples
+        color_distance = None
+        if avg_rgb is not None and centroids:
+            color_distance = min(euclidean(avg_rgb, centroid) for centroid in centroids)
+
+        color_outlier = (
+            stable_enough
+            and color_distance is not None
+            and color_distance >= min_color_distance
+            and hsv_matches_referee(avg_hsv, config)
+        )
+        stable_unassigned = stable_enough and team_id is None and mark_unassigned
+        if color_outlier or stable_unassigned:
+            role = "referee_candidate"
+
+        track["role"] = role
+        if color_distance is not None:
+            track["team_color_distance"] = round(color_distance, 2)
+
+    return tracks
+
+
+def compute_possession_events(frame_metrics, tracks, config, width, height):
+    if not bool(nested_get(config, ["events", "passes", "enabled"], True)):
+        return {
+            "passes_by_team": {"team_1": 0, "team_2": 0},
+            "possession_frames_by_team": {"team_1": 0, "team_2": 0, "unknown": 0},
+            "possession_timeline": [],
+            "events": [],
+        }
+
+    track_by_id = {
+        int(track["track_id"]): track
+        for track in tracks
+        if track.get("track_id") is not None
+    }
+    valid_roles = {"team_1", "team_2"}
+    diagonal = math.hypot(width, height)
+    max_distance = float(
+        nested_get(config, ["events", "passes", "max_ball_player_distance_ratio"], 0.045)
+    ) * diagonal
+    max_gap = int(nested_get(config, ["events", "passes", "max_pass_gap_frames"], 60))
+    min_gap_between_passes = int(
+        nested_get(config, ["events", "passes", "min_frames_between_passes"], 8)
+    )
+
+    current_track_id = None
+    current_team = None
+    current_frame = None
+    last_pass_frame = -10**9
+    passes_by_team = {"team_1": 0, "team_2": 0}
+    possession_frames_by_team = {"team_1": 0, "team_2": 0, "unknown": 0}
+    timeline = []
+    events = []
+
+    for frame in frame_metrics:
+        frame_number = int(frame.get("frame", 0))
+        ball_center = frame.get("ball_center")
+        if not frame.get("ball_visible") or not ball_center:
+            timeline.append(
+                {
+                    "frame": frame_number,
+                    "track_id": current_track_id,
+                    "team": current_team,
+                    "distance_px": None,
+                    "source": "memory",
+                }
+            )
+            if current_team in possession_frames_by_team:
+                possession_frames_by_team[current_team] += 1
+            else:
+                possession_frames_by_team["unknown"] += 1
+            continue
+
+        nearest = None
+        for person in frame.get("person_details", []):
+            track_id = person.get("track_id")
+            if track_id is None:
+                continue
+            track = track_by_id.get(int(track_id))
+            if track is None or track.get("role") not in valid_roles:
+                continue
+            foot = person.get("foot") or person.get("center")
+            if not foot:
+                continue
+            distance = math.hypot(ball_center[0] - foot[0], ball_center[1] - foot[1])
+            if nearest is None or distance < nearest["distance_px"]:
+                nearest = {
+                    "track_id": int(track_id),
+                    "team": track.get("role"),
+                    "distance_px": distance,
+                }
+
+        if nearest is not None and nearest["distance_px"] <= max_distance:
+            next_track_id = nearest["track_id"]
+            next_team = nearest["team"]
+            if (
+                current_track_id is not None
+                and next_track_id != current_track_id
+                and next_team == current_team
+                and current_frame is not None
+                and frame_number - current_frame <= max_gap
+                and frame_number - last_pass_frame >= min_gap_between_passes
+            ):
+                passes_by_team[next_team] += 1
+                last_pass_frame = frame_number
+                events.append(
+                    {
+                        "type": "pass_candidate",
+                        "frame": frame_number,
+                        "team": next_team,
+                        "from_track_id": current_track_id,
+                        "to_track_id": next_track_id,
+                        "distance_px": round(nearest["distance_px"], 2),
+                    }
+                )
+
+            current_track_id = next_track_id
+            current_team = next_team
+            current_frame = frame_number
+            distance_value = round(nearest["distance_px"], 2)
+        else:
+            distance_value = round(nearest["distance_px"], 2) if nearest else None
+
+        if current_team in possession_frames_by_team:
+            possession_frames_by_team[current_team] += 1
+        else:
+            possession_frames_by_team["unknown"] += 1
+        timeline.append(
+            {
+                "frame": frame_number,
+                "track_id": current_track_id,
+                "team": current_team,
+                "distance_px": distance_value,
+                "source": "nearest_player" if nearest else "none",
+            }
+        )
+
+    return {
+        "passes_by_team": passes_by_team,
+        "possession_frames_by_team": possession_frames_by_team,
+        "possession_timeline": timeline,
+        "events": events,
+    }
+
+
 def write_stats(
     config,
     stats_path,
@@ -760,16 +975,22 @@ def write_stats(
     status_counts,
     track_summaries,
     frame_metrics,
+    width,
+    height,
 ):
     stats_path.parent.mkdir(parents=True, exist_ok=True)
     tracks = [summary.to_dict() for summary in sorted(track_summaries.values(), key=lambda item: item.track_id)]
     tracks, team_info = assign_team_clusters(tracks, config)
+    tracks = assign_track_roles(tracks, team_info, config)
+    possession_payload = compute_possession_events(frame_metrics, tracks, config, width, height)
     track_lengths = [track["frames_seen"] for track in tracks]
 
     payload = {
         "metadata": {
             "input": str(input_path),
             "output": str(output_path),
+            "width": width,
+            "height": height,
             "model": args.model,
             "imgsz": args.imgsz,
             "model_conf": args.model_conf,
@@ -791,6 +1012,13 @@ def write_stats(
                 team_id: item["tracks"]
                 for team_id, item in team_info.items()
             },
+            "role_counts": {
+                role: sum(1 for track in tracks if track.get("role") == role)
+                for role in sorted({track.get("role", "unknown") for track in tracks})
+            },
+            "team_1_passes": possession_payload["passes_by_team"].get("team_1", 0),
+            "team_2_passes": possession_payload["passes_by_team"].get("team_2", 0),
+            "pass_candidates": len(possession_payload["events"]),
             "avg_track_length_frames": round(sum(track_lengths) / len(track_lengths), 2)
             if track_lengths
             else 0.0,
@@ -799,6 +1027,12 @@ def write_stats(
         "teams": team_info,
         "tracks": tracks,
         "frames": frame_metrics,
+        "possession": {
+            "passes_by_team": possession_payload["passes_by_team"],
+            "frames_by_team": possession_payload["possession_frames_by_team"],
+            "timeline": possession_payload["possession_timeline"],
+        },
+        "events": possession_payload["events"],
     }
 
     with stats_path.open("w", encoding="utf-8") as file:
@@ -807,18 +1041,93 @@ def write_stats(
     return payload
 
 
-def team_color(track_id, track_team_map):
-    if track_team_map is None:
+def team_color(track_id, track_role_map):
+    if track_role_map is None:
         return (60, 220, 80)
     if track_id is None:
         return (245, 245, 245)
 
-    team_id = track_team_map.get(int(track_id))
-    if team_id == "team_1":
+    role = track_role_map.get(int(track_id))
+    if role == "team_1":
         return (230, 100, 40)
-    if team_id == "team_2":
+    if role == "team_2":
         return (40, 40, 230)
+    if role == "referee_candidate":
+        return (245, 245, 245)
     return (245, 245, 245)
+
+
+def role_label_prefix(track_id, track_role_map):
+    if track_id is None or not track_role_map:
+        return None
+    role = track_role_map.get(int(track_id))
+    if role == "referee_candidate":
+        return "REF"
+    return None
+
+
+def event_state_by_frame(stats_payload):
+    if not stats_payload:
+        return {}
+
+    states = {}
+    events_by_frame = {}
+    for event in stats_payload.get("events", []):
+        events_by_frame.setdefault(int(event.get("frame", 0)), []).append(event)
+
+    passes_by_team = {"team_1": 0, "team_2": 0}
+    timeline = stats_payload.get("possession", {}).get("timeline", [])
+    for state in timeline:
+        frame_number = int(state.get("frame", 0))
+        for event in events_by_frame.get(frame_number, []):
+            team = event.get("team")
+            if team in passes_by_team:
+                passes_by_team[team] += 1
+        states[frame_number] = {
+            "team_1_passes": passes_by_team["team_1"],
+            "team_2_passes": passes_by_team["team_2"],
+            "possession_team": state.get("team"),
+            "possession_track_id": state.get("track_id"),
+            "events": events_by_frame.get(frame_number, []),
+        }
+    return states
+
+
+def draw_event_panel(frame, event_state):
+    if not event_state:
+        return
+
+    height, width = frame.shape[:2]
+    panel_width = min(width - 16, 380)
+    x1 = 8
+    y1 = 72
+    x2 = x1 + panel_width
+    y2 = y1 + 86
+    overlay = frame.copy()
+    cv2.rectangle(overlay, (x1, y1), (x2, y2), (0, 0, 0), -1)
+    cv2.addWeighted(overlay, 0.58, frame, 0.42, 0, frame)
+
+    possession = event_state.get("possession_team") or "-"
+    track_id = event_state.get("possession_track_id")
+    possession_text = f"Possession: {possession}"
+    if track_id is not None:
+        possession_text += f" #{track_id}"
+    lines = [
+        f"Team 1 passes: {event_state.get('team_1_passes', 0)}",
+        f"Team 2 passes: {event_state.get('team_2_passes', 0)}",
+        possession_text,
+    ]
+    for index, line in enumerate(lines):
+        cv2.putText(
+            frame,
+            line,
+            (x1 + 10, y1 + 24 + index * 22),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.54,
+            (255, 255, 255),
+            1,
+            cv2.LINE_AA,
+        )
 
 
 def annotate_frame(
@@ -830,7 +1139,8 @@ def annotate_frame(
     frame_index,
     fps_estimate,
     config,
-    track_team_map=None,
+    track_role_map=None,
+    event_state=None,
 ):
     visual_scale = annotation_resolution_scale(frame, config)
     base_person_label_scale = 0.45
@@ -845,9 +1155,15 @@ def annotate_frame(
     )
 
     for person in persons:
-        marker_color = team_color(person.track_id, track_team_map)
+        marker_color = team_color(person.track_id, track_role_map)
         draw_person_marker(frame, person, config, marker_color)
-        person_label = f"#{person.track_id} {person.conf:.2f}" if person.track_id is not None else f"person {person.conf:.2f}"
+        prefix = role_label_prefix(person.track_id, track_role_map)
+        if person.track_id is not None:
+            person_label = f"#{person.track_id} {person.conf:.2f}"
+            if prefix:
+                person_label = f"{prefix} {person_label}"
+        else:
+            person_label = f"person {person.conf:.2f}"
         draw_label(
             frame,
             person_label,
@@ -868,19 +1184,20 @@ def annotate_frame(
         draw_label(frame, label, ball.x1, ball.y1, color, fg_color=(0, 0, 0))
 
     draw_status_panel(frame, status, frame_index, persons, ball, ball_from_memory, fps_estimate)
+    draw_event_panel(frame, event_state)
 
 
-def track_team_map_from_stats(stats_payload):
+def track_role_map_from_stats(stats_payload):
     if not stats_payload:
         return {}
     return {
-        int(track["track_id"]): track.get("team_id")
+        int(track["track_id"]): track.get("role") or track.get("team_id")
         for track in stats_payload.get("tracks", [])
         if track.get("track_id") is not None
     }
 
 
-def render_two_pass_video(input_path, output_path, fps, width, height, frame_annotations, config, track_team_map):
+def render_two_pass_video(input_path, output_path, fps, width, height, frame_annotations, config, track_role_map, event_states):
     cap = cv2.VideoCapture(str(input_path))
     if not cap.isOpened():
         raise RuntimeError(f"No se pudo reabrir el video para render en dos pasadas: {input_path}")
@@ -904,7 +1221,8 @@ def render_two_pass_video(input_path, output_path, fps, width, height, frame_ann
                 annotation.frame_index,
                 annotation.fps_estimate,
                 config,
-                track_team_map,
+                track_role_map,
+                event_states.get(frame_index),
             )
         writer.write(frame)
 
@@ -1123,11 +1441,14 @@ def main():
             status_counts,
             track_summaries,
             frame_metrics,
+            width,
+            height,
         )
         print(f"Metricas generadas: {stats_path}")
 
     if two_pass_team_render:
-        track_team_map = track_team_map_from_stats(stats_payload)
+        track_role_map = track_role_map_from_stats(stats_payload)
+        event_states = event_state_by_frame(stats_payload)
         render_two_pass_video(
             input_path,
             output_path,
@@ -1136,7 +1457,8 @@ def main():
             height,
             frame_annotations,
             config,
-            track_team_map,
+            track_role_map,
+            event_states,
         )
 
     print(f"Video generado: {output_path}")

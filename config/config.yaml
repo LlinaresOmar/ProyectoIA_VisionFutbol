@@ -115,9 +115,31 @@ team_memory:
     y_min_ratio: 0.20
     y_max_ratio: 0.60
 
+role_classification:
+  enabled: true
+  referee_min_frames: 15
+  referee_min_jersey_samples: 4
+  referee_min_color_distance: 85.0
+  mark_stable_unassigned_as_referee: false
+  referee_hsv_rules:
+    enabled: true
+    yellow:
+      h_min: 15
+      h_max: 45
+      s_min: 60
+      v_min: 80
+    black:
+      v_max: 75
+    white:
+      s_max: 55
+      v_min: 150
+
 events:
   passes:
-    enabled: false
+    enabled: true
+    max_ball_player_distance_ratio: 0.045
+    max_pass_gap_frames: 60
+    min_frames_between_passes: 8
   out_of_play:
     enabled: false
   goals:
