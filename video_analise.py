@@ -1,4 +1,5 @@
 import argparse
+import fnmatch
 import json
 import math
 from dataclasses import dataclass
@@ -356,7 +357,21 @@ def detection_center_in_region(detection, region, width, height):
     return x_min <= cx <= x_max and y_min <= cy <= y_max
 
 
-def is_ignored_ball_candidate(detection, config, width, height):
+def region_applies_to_source(region, source_name):
+    patterns = region.get("source_patterns")
+    if not patterns:
+        return True
+
+    if isinstance(patterns, str):
+        patterns = [patterns]
+
+    if not source_name:
+        return False
+
+    return any(fnmatch.fnmatch(Path(source_name).name, pattern) for pattern in patterns)
+
+
+def is_ignored_ball_candidate(detection, config, width, height, source_name=None):
     regions = nested_get(config, ["ball_filter", "ignore_regions"], [])
     if not isinstance(regions, list):
         return False
@@ -364,7 +379,7 @@ def is_ignored_ball_candidate(detection, config, width, height):
     return any(
         detection_center_in_region(detection, region, width, height)
         for region in regions
-        if isinstance(region, dict)
+        if isinstance(region, dict) and region_applies_to_source(region, source_name)
     )
 
 
@@ -527,7 +542,7 @@ def detections_from_result(result, args, config, width, height):
         elif (
             class_id == ball_class_id
             and conf >= args.ball_conf
-            and not is_ignored_ball_candidate(detection, config, width, height)
+            and not is_ignored_ball_candidate(detection, config, width, height, args.input)
         ):
             balls.append(detection)
 
@@ -957,7 +972,13 @@ def main():
                 ball_memory.missed_frames += 1
                 if (
                     ball_memory.detection is not None
-                    and is_ignored_ball_candidate(ball_memory.detection, config, width, height)
+                    and is_ignored_ball_candidate(
+                        ball_memory.detection,
+                        config,
+                        width,
+                        height,
+                        args.input,
+                    )
                 ):
                     ball_memory.detection = None
                 if (

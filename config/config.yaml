@@ -34,6 +34,15 @@ ball_filter:
       y_min_ratio: 0.70
       x_max_ratio: 1.00
       y_max_ratio: 1.00
+    - name: university_of_tsukuba_of_o
+      source_patterns:
+        - "128058*"
+        - "128058_*.mp4"
+        - "*128058_panorama_1st_half_cortado*"
+      x_min_ratio: 0.60
+      y_min_ratio: 0.62
+      x_max_ratio: 0.69
+      y_max_ratio: 0.84
 
 annotation:
   reference_frame_height: 224
