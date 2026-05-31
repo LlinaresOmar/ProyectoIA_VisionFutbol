@@ -5,13 +5,13 @@
 # - ball_detection: optimize ball visibility for later possession, passes, and goals.
 #
 # Run example:
-#   python tools/run_full_pitch_test_batch.py --experiment-config config/full_pitch_experiments.yaml --max-videos 3 --clips-per-video 3 --duration 30
+#   python tools/run_full_pitch_test_batch.py --experiment-config config/full_pitch_experiments.yaml --video-glob "128058*.mp4" --clips-per-video 3 --duration 10 --continue-on-error
 
 experiments:
-  - name: players_bytetrack_960_balanced
+  - name: players_bytetrack_800_fast
     profile: player_tracking
     model: yolo26n.pt
-    imgsz: 960
+    imgsz: 800
     model_conf: 0.04
     person_conf: 0.18
     ball_conf: 0.10
@@ -22,10 +22,10 @@ experiments:
     max_person_area_ratio_for_closeup: 0.20
     team_render_mode: two-pass
 
-  - name: players_bytetrack_1280_sensitive
+  - name: players_bytetrack_960_sensitive
     profile: player_tracking
     model: yolo26n.pt
-    imgsz: 1280
+    imgsz: 960
     model_conf: 0.03
     person_conf: 0.12
     ball_conf: 0.10
@@ -36,10 +36,10 @@ experiments:
     max_person_area_ratio_for_closeup: 0.20
     team_render_mode: two-pass
 
-  - name: players_botsort_960_balanced
+  - name: players_botsort_800_fast
     profile: player_tracking
     model: yolo26n.pt
-    imgsz: 960
+    imgsz: 800
     model_conf: 0.04
     person_conf: 0.18
     ball_conf: 0.10
@@ -50,10 +50,10 @@ experiments:
     max_person_area_ratio_for_closeup: 0.20
     team_render_mode: two-pass
 
-  - name: ball_bytetrack_960_sensitive
+  - name: ball_bytetrack_800_sensitive
     profile: ball_detection
     model: yolo26n.pt
-    imgsz: 960
+    imgsz: 800
     model_conf: 0.025
     person_conf: 0.22
     ball_conf: 0.06
@@ -64,10 +64,10 @@ experiments:
     max_person_area_ratio_for_closeup: 0.20
     team_render_mode: two-pass
 
-  - name: ball_bytetrack_1280_sensitive
+  - name: ball_bytetrack_960_sensitive
     profile: ball_detection
     model: yolo26n.pt
-    imgsz: 1280
+    imgsz: 960
     model_conf: 0.02
     person_conf: 0.22
     ball_conf: 0.05
@@ -78,10 +78,10 @@ experiments:
     max_person_area_ratio_for_closeup: 0.20
     team_render_mode: two-pass
 
-  - name: ball_botsort_960_sensitive
+  - name: ball_botsort_800_sensitive
     profile: ball_detection
     model: yolo26n.pt
-    imgsz: 960
+    imgsz: 800
     model_conf: 0.025
     person_conf: 0.22
     ball_conf: 0.06

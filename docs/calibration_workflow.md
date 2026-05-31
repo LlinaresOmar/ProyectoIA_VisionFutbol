@@ -27,13 +27,17 @@ events, not only the visual look of detections.
 ```powershell
 C:\Users\javie\miniconda3\envs\football-ai\python.exe tools\run_full_pitch_test_batch.py `
   --input-dir videos\input\test `
-  --max-videos 3 `
+  --video-glob "128058*.mp4" `
   --clips-per-video 3 `
-  --duration 30 `
-  --experiment-config config\full_pitch_experiments.yaml
+  --duration 10 `
+  --experiment-config config\full_pitch_experiments.yaml `
+  --continue-on-error
 ```
 
 Without `--experiment-config`, the script keeps the previous single-run behavior.
+Use `--exclude-video-glob "117093*"` when running a broader directory but
+excluding the calibrated/flattened input that is too far away for the current
+detector.
 
 The batch runner writes:
 
@@ -42,6 +46,11 @@ The batch runner writes:
 - one annotated video per clip and experiment;
 - one stats JSON per clip and experiment;
 - one panel HTML per clip and experiment.
+
+For the current CPU-only laptop workflow, prefer short calibration clips first:
+10 seconds, 3 clips per useful source video, and the CPU-friendly matrix in
+`config/full_pitch_experiments.yaml`. Longer clips and larger image sizes should
+be reserved for final verification on the best camera/source.
 
 ## Metrics that matter
 
@@ -70,6 +79,11 @@ For passes and goals later:
 - ball entering or crossing configured goal-mouth zones.
 
 ## Blind spots
+
+The current local Python environment uses PyTorch CPU only and OpenCV without
+OpenVINO. The Intel UHD GPU is therefore not accelerating YOLO inference. Video
+decode/encode acceleration may help later through FFmpeg Quick Sync or OpenVINO,
+but the main bottleneck during experiments is model inference, not MP4 writing.
 
 The expected 20-22 player count is a strong heuristic, not ground truth. Real
 full-pitch video can include occlusions, players outside the visible area,
