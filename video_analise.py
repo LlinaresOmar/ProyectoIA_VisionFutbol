@@ -176,6 +176,26 @@ def parse_args():
         help="Frames durante los que se mantiene la ultima posicion del balon.",
     )
     parser.add_argument(
+        "--min-green-ratio",
+        type=float,
+        default=float(nested_get(config, ["frame_analysis", "min_green_ratio"], 0.35)),
+        help="Ratio minimo de cesped para clasificar un frame como analizable.",
+    )
+    parser.add_argument(
+        "--min-players-for-play-frame",
+        type=int,
+        default=int(nested_get(config, ["frame_analysis", "min_players_for_play_frame"], 4)),
+        help="Minimo de jugadores detectados para considerar juego analizable.",
+    )
+    parser.add_argument(
+        "--max-person-area-ratio-for-closeup",
+        type=float,
+        default=float(
+            nested_get(config, ["frame_analysis", "max_person_area_ratio_for_closeup"], 0.25)
+        ),
+        help="Area maxima relativa de una persona antes de considerar CLOSE_UP.",
+    )
+    parser.add_argument(
         "--process-every",
         type=int,
         default=int(nested_get(config, ["video", "process_every_n_frames"], 1)),
@@ -336,13 +356,23 @@ def select_ball(candidates, memory):
     return min(candidates, key=score)
 
 
-def classify_frame(frame, persons, visible_ball, config):
+def classify_frame(frame, persons, visible_ball, config, args=None):
     height, width = frame.shape[:2]
     frame_area = width * height
-    min_players = int(nested_get(config, ["frame_analysis", "min_players_for_play_frame"], 4))
-    min_green = float(nested_get(config, ["frame_analysis", "min_green_ratio"], 0.35))
-    max_closeup_area = float(
-        nested_get(config, ["frame_analysis", "max_person_area_ratio_for_closeup"], 0.25)
+    min_players = (
+        args.min_players_for_play_frame
+        if args is not None
+        else int(nested_get(config, ["frame_analysis", "min_players_for_play_frame"], 4))
+    )
+    min_green = (
+        args.min_green_ratio
+        if args is not None
+        else float(nested_get(config, ["frame_analysis", "min_green_ratio"], 0.35))
+    )
+    max_closeup_area = (
+        args.max_person_area_ratio_for_closeup
+        if args is not None
+        else float(nested_get(config, ["frame_analysis", "max_person_area_ratio_for_closeup"], 0.25))
     )
 
     largest_person_ratio = 0.0
@@ -654,6 +684,9 @@ def write_stats(
             "model_conf": args.model_conf,
             "person_conf": args.person_conf,
             "ball_conf": args.ball_conf,
+            "min_green_ratio": args.min_green_ratio,
+            "min_players_for_play_frame": args.min_players_for_play_frame,
+            "max_person_area_ratio_for_closeup": args.max_person_area_ratio_for_closeup,
             "tracking_enabled": bool(args.tracking),
             "tracker": args.tracker if args.tracking else None,
         },
@@ -842,7 +875,7 @@ def main():
             if visible_ball:
                 ball_visible_frames += 1
 
-            status = classify_frame(frame, persons, selected_ball is not None, config)
+            status = classify_frame(frame, persons, selected_ball is not None, config, args)
             if (
                 status == "CLOSE_UP"
                 and ball_from_memory
