@@ -5,6 +5,7 @@ video:
   input_path: videos/clips/prepared/clip_00m00s_20s.mp4
   output_dir: videos/output
   process_every_n_frames: 1
+  web_compatible_output: true
 
 model:
   path: yolo26n.pt

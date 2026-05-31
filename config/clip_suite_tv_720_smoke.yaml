@@ -11,6 +11,7 @@ profiles:
     min_players_for_play_frame: 3
     max_person_area_ratio_for_closeup: 0.35
     team_render_mode: two-pass
+    web_video: true
 
 clips:
   - id: tv_720_0000_15s

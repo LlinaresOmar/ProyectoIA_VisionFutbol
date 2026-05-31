@@ -2,6 +2,8 @@ import argparse
 import fnmatch
 import json
 import math
+import shutil
+import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -234,6 +236,12 @@ def parse_args():
         default=nested_get(config, ["annotation", "team_render_mode"], "single-pass"),
         help="single-pass mantiene el estilo actual; two-pass pinta equipos tras resolver clusters.",
     )
+    parser.add_argument(
+        "--web-video",
+        action=argparse.BooleanOptionalAction,
+        default=bool(nested_get(config, ["video", "web_compatible_output"], True)),
+        help="Convertir el MP4 final a H.264/yuv420p para reproducirlo en informes HTML.",
+    )
     return parser.parse_args()
 
 
@@ -264,6 +272,49 @@ def make_writer(output_path, fps, width, height):
     if not writer.isOpened():
         raise RuntimeError(f"No se pudo crear el video de salida: {output_path}")
     return writer
+
+
+def convert_to_web_mp4(output_path):
+    ffmpeg_path = shutil.which("ffmpeg")
+    if not ffmpeg_path:
+        print("AVISO: ffmpeg no encontrado; el video queda con el codec de OpenCV.")
+        return False
+
+    temp_path = output_path.with_name(f"{output_path.stem}_h264_tmp{output_path.suffix}")
+    if temp_path.exists():
+        temp_path.unlink()
+
+    command = [
+        ffmpeg_path,
+        "-y",
+        "-hide_banner",
+        "-loglevel",
+        "error",
+        "-i",
+        str(output_path),
+        "-c:v",
+        "libx264",
+        "-preset",
+        "veryfast",
+        "-crf",
+        "23",
+        "-pix_fmt",
+        "yuv420p",
+        "-movflags",
+        "+faststart",
+        "-an",
+        str(temp_path),
+    ]
+    try:
+        subprocess.run(command, check=True)
+    except subprocess.CalledProcessError as exc:
+        if temp_path.exists():
+            temp_path.unlink()
+        print(f"AVISO: no se pudo convertir a H.264 con ffmpeg ({exc.returncode}).")
+        return False
+
+    temp_path.replace(output_path)
+    return True
 
 
 def clamp_box(box, width, height):
@@ -1576,6 +1627,10 @@ def main():
             track_role_map,
             event_states,
         )
+
+    if args.web_video:
+        if convert_to_web_mp4(output_path):
+            print(f"Video convertido a H.264/yuv420p: {output_path}")
 
     print(f"Video generado: {output_path}")
 

@@ -44,6 +44,10 @@ El modo `two-pass` realiza una primera pasada para deteccion, tracking, equipos,
 roles y eventos; despues reabre el video para pintar equipos, porteros,
 arbitro y contadores de pases con la informacion ya consolidada.
 
+Por defecto el MP4 final se recodifica con `ffmpeg` a H.264/yuv420p para que
+los enlaces de los informes HTML funcionen en navegadores como Chrome. Se puede
+desactivar con `--no-web-video`.
+
 ## Panel HTML de un clip
 
 ```powershell

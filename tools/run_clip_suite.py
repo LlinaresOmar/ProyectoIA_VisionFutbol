@@ -40,6 +40,12 @@ def experiment_arg(command, option, value):
     command.extend([option, str(value)])
 
 
+def experiment_bool_arg(command, option, value):
+    if value is None:
+        return
+    command.append(option if bool(value) else f"--no-{option.removeprefix('--')}")
+
+
 def run_command(command, dry_run):
     print("$ " + " ".join(command))
     if dry_run:
@@ -140,6 +146,7 @@ def analyze_clip(item, clip_path, profile, output_dir, overwrite, dry_run):
             ("team_render_mode", "--team-render-mode"),
         ]:
             experiment_arg(command, option, profile.get(key))
+        experiment_bool_arg(command, "--web-video", profile.get("web_video"))
         run_command(command, dry_run)
 
     if overwrite or not report_path.exists():

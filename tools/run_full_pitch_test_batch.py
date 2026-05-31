@@ -132,6 +132,7 @@ def load_experiments(args: argparse.Namespace) -> list[dict]:
                 "min_players_for_play_frame": args.min_players_for_play_frame,
                 "max_person_area_ratio_for_closeup": args.max_person_area_ratio_for_closeup,
                 "team_render_mode": args.team_render_mode,
+                "web_video": True,
             }
         ]
 
@@ -165,6 +166,7 @@ def load_experiments(args: argparse.Namespace) -> list[dict]:
                 args.max_person_area_ratio_for_closeup,
             ),
             "team_render_mode": experiment.get("team_render_mode", args.team_render_mode),
+            "web_video": experiment.get("web_video", True),
         }
         normalized.append(item)
 
@@ -177,6 +179,12 @@ def experiment_arg(command: list[str], option: str, value) -> None:
     if value is None:
         return
     command.extend([option, str(value)])
+
+
+def experiment_bool_arg(command: list[str], option: str, value) -> None:
+    if value is None:
+        return
+    command.append(option if bool(value) else f"--no-{option.removeprefix('--')}")
 
 
 def exclude_videos(videos: list[Path], patterns: list[str]) -> list[Path]:
@@ -813,6 +821,7 @@ def main() -> None:
                         experiment.get("max_person_area_ratio_for_closeup"),
                     )
                     experiment_arg(command, "--team-render-mode", experiment.get("team_render_mode"))
+                    experiment_bool_arg(command, "--web-video", experiment.get("web_video"))
                     ok, error = run_command(command, args.dry_run, args.continue_on_error)
                     if not ok:
                         manifest["failures"].append(
