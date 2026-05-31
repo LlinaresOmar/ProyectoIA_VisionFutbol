@@ -1,0 +1,87 @@
+# Initial full-pitch calibration matrix.
+#
+# Profiles are intentionally separated:
+# - player_tracking: optimize player count, track continuity, and team memory.
+# - ball_detection: optimize ball visibility for later possession, passes, and goals.
+#
+# Run example:
+#   python tools/run_full_pitch_test_batch.py --experiment-config config/full_pitch_experiments.yaml --max-videos 3 --clips-per-video 3 --duration 30
+
+experiments:
+  - name: players_bytetrack_960_balanced
+    profile: player_tracking
+    model: yolo26n.pt
+    imgsz: 960
+    model_conf: 0.04
+    person_conf: 0.18
+    ball_conf: 0.10
+    tracker: bytetrack.yaml
+    process_every: 1
+    min_green_ratio: 0.25
+    min_players_for_play_frame: 14
+    max_person_area_ratio_for_closeup: 0.20
+
+  - name: players_bytetrack_1280_sensitive
+    profile: player_tracking
+    model: yolo26n.pt
+    imgsz: 1280
+    model_conf: 0.03
+    person_conf: 0.12
+    ball_conf: 0.10
+    tracker: bytetrack.yaml
+    process_every: 1
+    min_green_ratio: 0.22
+    min_players_for_play_frame: 14
+    max_person_area_ratio_for_closeup: 0.20
+
+  - name: players_botsort_960_balanced
+    profile: player_tracking
+    model: yolo26n.pt
+    imgsz: 960
+    model_conf: 0.04
+    person_conf: 0.18
+    ball_conf: 0.10
+    tracker: botsort.yaml
+    process_every: 1
+    min_green_ratio: 0.25
+    min_players_for_play_frame: 14
+    max_person_area_ratio_for_closeup: 0.20
+
+  - name: ball_bytetrack_960_sensitive
+    profile: ball_detection
+    model: yolo26n.pt
+    imgsz: 960
+    model_conf: 0.025
+    person_conf: 0.22
+    ball_conf: 0.06
+    tracker: bytetrack.yaml
+    process_every: 1
+    min_green_ratio: 0.25
+    min_players_for_play_frame: 10
+    max_person_area_ratio_for_closeup: 0.20
+
+  - name: ball_bytetrack_1280_sensitive
+    profile: ball_detection
+    model: yolo26n.pt
+    imgsz: 1280
+    model_conf: 0.02
+    person_conf: 0.22
+    ball_conf: 0.05
+    tracker: bytetrack.yaml
+    process_every: 1
+    min_green_ratio: 0.22
+    min_players_for_play_frame: 10
+    max_person_area_ratio_for_closeup: 0.20
+
+  - name: ball_botsort_960_sensitive
+    profile: ball_detection
+    model: yolo26n.pt
+    imgsz: 960
+    model_conf: 0.025
+    person_conf: 0.22
+    ball_conf: 0.06
+    tracker: botsort.yaml
+    process_every: 1
+    min_green_ratio: 0.25
+    min_players_for_play_frame: 10
+    max_person_area_ratio_for_closeup: 0.20
