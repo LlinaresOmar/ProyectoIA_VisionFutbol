@@ -1320,17 +1320,26 @@ def annotate_frame(
     person_label_offset = int(
         round(int(nested_get(config, ["annotation", "person_label_offset_px"], 4)) * visual_scale)
     )
+    show_untracked_persons = bool(nested_get(config, ["annotation", "show_untracked_persons"], False))
+    show_person_confidence = bool(nested_get(config, ["annotation", "show_person_confidence"], False))
 
     for person in persons:
+        if person.track_id is None and not show_untracked_persons:
+            continue
+
         marker_color = team_color(person.track_id, track_role_map, config)
         draw_person_marker(frame, person, config, marker_color)
         prefix = role_label_prefix(person.track_id, track_role_map)
         if person.track_id is not None:
-            person_label = f"#{person.track_id} {person.conf:.2f}"
+            person_label = f"#{person.track_id}"
+            if show_person_confidence:
+                person_label = f"{person_label} {person.conf:.2f}"
             if prefix:
                 person_label = f"{prefix} {person_label}"
         else:
-            person_label = f"person {person.conf:.2f}"
+            person_label = "person"
+            if show_person_confidence:
+                person_label = f"{person_label} {person.conf:.2f}"
         draw_label(
             frame,
             person_label,

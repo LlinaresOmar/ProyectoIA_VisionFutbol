@@ -48,6 +48,10 @@ Por defecto el MP4 final se recodifica con `ffmpeg` a H.264/yuv420p para que
 los enlaces de los informes HTML funcionen en navegadores como Chrome. Se puede
 desactivar con `--no-web-video`.
 
+Para que la demo sea legible, el overlay de jugadores muestra solo `#track_id`
+en las detecciones trazadas y oculta detecciones de persona sin ID. Esto reduce
+el parpadeo visual cuando el tracker pierde una asociacion durante algun frame.
+
 ## Panel HTML de un clip
 
 ```powershell
