@@ -91,6 +91,8 @@ def ensure_clip(item, clips_dir, overwrite, dry_run):
         duration_seconds=duration,
         prefix=slugify(item.get("id") or source.stem),
     )
+    if clip_path.exists():
+        clip_path.unlink()
     generated.rename(clip_path)
     return clip_path
 

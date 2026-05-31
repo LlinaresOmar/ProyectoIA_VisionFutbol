@@ -85,6 +85,12 @@ annotation:
   person_marker_height_ratio: 0.25
   person_marker_thickness: 1
   team_render_mode: single-pass
+  role_colors:
+    team_1: [230, 100, 40]
+    team_2: [40, 40, 230]
+    goalkeeper_candidate: [0, 220, 255]
+    referee_candidate: [245, 245, 245]
+    unknown: [245, 245, 245]
 
 tracking:
   enabled: true
@@ -120,6 +126,13 @@ role_classification:
   referee_min_frames: 15
   referee_min_jersey_samples: 4
   referee_min_color_distance: 85.0
+  goalkeeper_min_frames: 15
+  goalkeeper_goal_zone_x_ratio: 0.18
+  goalkeeper_goal_zone_y_ratio: 0.32
+  goalkeeper_max_field_span_ratio: 0.28
+  referee_prefer_central_area: true
+  referee_central_margin_x_ratio: 0.14
+  referee_central_margin_y_ratio: 0.12
   mark_stable_unassigned_as_referee: false
   referee_hsv_rules:
     enabled: true

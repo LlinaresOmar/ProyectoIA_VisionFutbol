@@ -102,7 +102,7 @@ def build_pass_cards(summary, possession):
       <article class="card"><p class="muted">Team 1 passes</p><strong>{summary.get("team_1_passes", 0)}</strong><p class="muted">{possession_pct("team_1"):.1f}% posesion</p></article>
       <article class="card"><p class="muted">Team 2 passes</p><strong>{summary.get("team_2_passes", 0)}</strong><p class="muted">{possession_pct("team_2"):.1f}% posesion</p></article>
       <article class="card"><p class="muted">Pass candidates</p><strong>{summary.get("pass_candidates", 0)}</strong><p class="muted">eventos aproximados</p></article>
-      <article class="card"><p class="muted">Referee candidates</p><strong>{summary.get("role_counts", {}).get("referee_candidate", 0)}</strong><p class="muted">tracks outlier</p></article>
+      <article class="card"><p class="muted">Roles especiales</p><strong>{summary.get("role_counts", {}).get("referee_candidate", 0)} / {summary.get("role_counts", {}).get("goalkeeper_candidate", 0)}</strong><p class="muted">arbitro / portero</p></article>
     """
 
 
@@ -360,7 +360,7 @@ def build_html(stats):
       <section>
         <h2>Equipos Por Color</h2>
         <div class="team-list">{build_team_cards(teams)}</div>
-        <p class="note">team_1 y team_2 salen de clusters de color por track. referee_candidate es un outlier estable de color respecto a esos clusters, por tanto es heuristico.</p>
+        <p class="note">team_1 y team_2 salen de clusters de color por track. goalkeeper_candidate y referee_candidate son roles heuristicos: ambos parten de outliers de color, pero portero se favorece cerca de zonas de porteria o bordes defensivos y arbitro en zonas interiores.</p>
       </section>
     </div>
 

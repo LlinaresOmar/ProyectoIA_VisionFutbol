@@ -793,7 +793,88 @@ def hsv_matches_referee(avg_hsv, config):
     return bool(is_yellow or is_black or is_white)
 
 
-def assign_track_roles(tracks, team_info, config):
+def track_spatial_profiles(frame_metrics, width, height):
+    profiles = {}
+    for frame in frame_metrics:
+        for person in frame.get("person_details", []):
+            track_id = person.get("track_id")
+            foot = person.get("foot") or person.get("center")
+            if track_id is None or not foot:
+                continue
+
+            key = int(track_id)
+            profile = profiles.setdefault(
+                key,
+                {
+                    "samples": 0,
+                    "x_sum": 0.0,
+                    "y_sum": 0.0,
+                    "x_min": 1.0,
+                    "x_max": 0.0,
+                    "y_min": 1.0,
+                    "y_max": 0.0,
+                },
+            )
+            x_ratio = max(0.0, min(1.0, float(foot[0]) / max(1, width)))
+            y_ratio = max(0.0, min(1.0, float(foot[1]) / max(1, height)))
+            profile["samples"] += 1
+            profile["x_sum"] += x_ratio
+            profile["y_sum"] += y_ratio
+            profile["x_min"] = min(profile["x_min"], x_ratio)
+            profile["x_max"] = max(profile["x_max"], x_ratio)
+            profile["y_min"] = min(profile["y_min"], y_ratio)
+            profile["y_max"] = max(profile["y_max"], y_ratio)
+
+    for profile in profiles.values():
+        samples = max(1, profile["samples"])
+        profile["x_mean"] = profile["x_sum"] / samples
+        profile["y_mean"] = profile["y_sum"] / samples
+        profile["x_span"] = profile["x_max"] - profile["x_min"]
+        profile["y_span"] = profile["y_max"] - profile["y_min"]
+
+    return profiles
+
+
+def is_goalkeeper_spatial_candidate(profile, config):
+    if not profile:
+        return False
+
+    goal_x = float(nested_get(config, ["role_classification", "goalkeeper_goal_zone_x_ratio"], 0.18))
+    goal_y = float(nested_get(config, ["role_classification", "goalkeeper_goal_zone_y_ratio"], 0.28))
+    max_span = float(nested_get(config, ["role_classification", "goalkeeper_max_field_span_ratio"], 0.28))
+    x_mean = profile.get("x_mean", 0.5)
+    y_mean = profile.get("y_mean", 0.5)
+    x_span = profile.get("x_span", 1.0)
+    y_span = profile.get("y_span", 1.0)
+
+    near_goal_x = x_mean <= goal_x or x_mean >= 1.0 - goal_x
+    near_goal_y = y_mean <= goal_y or y_mean >= 1.0 - goal_y
+    limited_range = x_span <= max_span and y_span <= max_span
+    return bool((near_goal_x or near_goal_y) and limited_range)
+
+
+def is_referee_spatial_candidate(profile, config):
+    if not profile:
+        return True
+
+    if not bool(nested_get(config, ["role_classification", "referee_prefer_central_area"], True)):
+        return True
+
+    central_margin_x = float(
+        nested_get(config, ["role_classification", "referee_central_margin_x_ratio"], 0.14)
+    )
+    central_margin_y = float(
+        nested_get(config, ["role_classification", "referee_central_margin_y_ratio"], 0.12)
+    )
+    x_mean = profile.get("x_mean", 0.5)
+    y_mean = profile.get("y_mean", 0.5)
+    return (
+        central_margin_x <= x_mean <= 1.0 - central_margin_x
+        and central_margin_y <= y_mean <= 1.0 - central_margin_y
+    )
+
+
+def assign_track_roles(tracks, team_info, config, frame_metrics=None, width=1, height=1):
     if not bool(nested_get(config, ["role_classification", "enabled"], True)):
         for track in tracks:
             track["role"] = track.get("team_id") or "unknown"
@@ -801,6 +882,9 @@ def assign_track_roles(tracks, team_info, config):
 
     min_frames = int(nested_get(config, ["role_classification", "referee_min_frames"], 15))
     min_samples = int(nested_get(config, ["role_classification", "referee_min_jersey_samples"], 4))
+    goalkeeper_min_frames = int(
+        nested_get(config, ["role_classification", "goalkeeper_min_frames"], min_frames)
+    )
     min_color_distance = float(
         nested_get(config, ["role_classification", "referee_min_color_distance"], 85.0)
     )
@@ -812,6 +896,7 @@ def assign_track_roles(tracks, team_info, config):
         for _, info in sorted(team_info.items())
         if info.get("avg_rgb") is not None
     ]
+    spatial_profiles = track_spatial_profiles(frame_metrics or [], width, height)
 
     for track in tracks:
         team_id = track.get("team_id")
@@ -825,19 +910,36 @@ def assign_track_roles(tracks, team_info, config):
         if avg_rgb is not None and centroids:
             color_distance = min(euclidean(avg_rgb, centroid) for centroid in centroids)
 
+        profile = spatial_profiles.get(int(track["track_id"]))
         color_outlier = (
             stable_enough
             and color_distance is not None
             and color_distance >= min_color_distance
             and hsv_matches_referee(avg_hsv, config)
         )
+        goalkeeper_candidate = (
+            frames_seen >= goalkeeper_min_frames
+            and color_outlier
+            and is_goalkeeper_spatial_candidate(profile, config)
+        )
+        referee_candidate = color_outlier and is_referee_spatial_candidate(profile, config)
         stable_unassigned = stable_enough and team_id is None and mark_unassigned
-        if color_outlier or stable_unassigned:
+        if goalkeeper_candidate:
+            role = "goalkeeper_candidate"
+        elif referee_candidate or stable_unassigned:
             role = "referee_candidate"
 
         track["role"] = role
         if color_distance is not None:
             track["team_color_distance"] = round(color_distance, 2)
+        if profile:
+            track["spatial_profile"] = {
+                "samples": profile["samples"],
+                "x_mean": round(profile["x_mean"], 4),
+                "y_mean": round(profile["y_mean"], 4),
+                "x_span": round(profile["x_span"], 4),
+                "y_span": round(profile["y_span"], 4),
+            }
 
     return tracks
 
@@ -984,7 +1086,7 @@ def write_stats(
     stats_path.parent.mkdir(parents=True, exist_ok=True)
     tracks = [summary.to_dict() for summary in sorted(track_summaries.values(), key=lambda item: item.track_id)]
     tracks, team_info = assign_team_clusters(tracks, config)
-    tracks = assign_track_roles(tracks, team_info, config)
+    tracks = assign_track_roles(tracks, team_info, config, frame_metrics, width, height)
     possession_payload = compute_possession_events(frame_metrics, tracks, config, width, height)
     track_lengths = [track["frames_seen"] for track in tracks]
 
@@ -1044,20 +1146,29 @@ def write_stats(
     return payload
 
 
-def team_color(track_id, track_role_map):
+def annotation_role_color(role, config):
+    colors = nested_get(config, ["annotation", "role_colors"], {})
+    default_colors = {
+        "team_1": [230, 100, 40],
+        "team_2": [40, 40, 230],
+        "goalkeeper_candidate": [0, 220, 255],
+        "referee_candidate": [245, 245, 245],
+        "unknown": [245, 245, 245],
+    }
+    raw_color = colors.get(role, default_colors.get(role, default_colors["unknown"]))
+    if not isinstance(raw_color, list) or len(raw_color) != 3:
+        raw_color = default_colors["unknown"]
+    return tuple(max(0, min(255, int(value))) for value in raw_color)
+
+
+def team_color(track_id, track_role_map, config):
     if track_role_map is None:
         return (60, 220, 80)
     if track_id is None:
-        return (245, 245, 245)
+        return annotation_role_color("unknown", config)
 
     role = track_role_map.get(int(track_id))
-    if role == "team_1":
-        return (230, 100, 40)
-    if role == "team_2":
-        return (40, 40, 230)
-    if role == "referee_candidate":
-        return (245, 245, 245)
-    return (245, 245, 245)
+    return annotation_role_color(role or "unknown", config)
 
 
 def role_label_prefix(track_id, track_role_map):
@@ -1066,6 +1177,8 @@ def role_label_prefix(track_id, track_role_map):
     role = track_role_map.get(int(track_id))
     if role == "referee_candidate":
         return "REF"
+    if role == "goalkeeper_candidate":
+        return "GK"
     return None
 
 
@@ -1158,7 +1271,7 @@ def annotate_frame(
     )
 
     for person in persons:
-        marker_color = team_color(person.track_id, track_role_map)
+        marker_color = team_color(person.track_id, track_role_map, config)
         draw_person_marker(frame, person, config, marker_color)
         prefix = role_label_prefix(person.track_id, track_role_map)
         if person.track_id is not None:
