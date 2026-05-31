@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import fnmatch
 import json
 import os
 import subprocess
@@ -87,11 +88,19 @@ def safe_stem(path: Path) -> str:
     return path.stem.replace(" ", "_")
 
 
-def run_command(command: list[str], dry_run: bool) -> None:
+def run_command(command: list[str], dry_run: bool, continue_on_error: bool = False) -> tuple[bool, str | None]:
     print("$ " + " ".join(command))
     if dry_run:
-        return
-    subprocess.run(command, cwd=PROJECT_ROOT, check=True)
+        return True, None
+    try:
+        subprocess.run(command, cwd=PROJECT_ROOT, check=True)
+    except subprocess.CalledProcessError as exc:
+        error = f"Command failed with exit code {exc.returncode}"
+        if continue_on_error:
+            print(f"WARNING: {error}")
+            return False, error
+        raise
+    return True, None
 
 
 def slugify(value: str) -> str:
@@ -168,6 +177,18 @@ def experiment_arg(command: list[str], option: str, value) -> None:
     if value is None:
         return
     command.extend([option, str(value)])
+
+
+def exclude_videos(videos: list[Path], patterns: list[str]) -> list[Path]:
+    if not patterns:
+        return videos
+
+    selected = []
+    for video in videos:
+        if any(fnmatch.fnmatch(video.name, pattern) for pattern in patterns):
+            continue
+        selected.append(video)
+    return selected
 
 
 def relative_link(target: Path, base_dir: Path) -> str:
@@ -499,6 +520,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="Glob pattern for source videos inside input-dir. Defaults to *.mp4.",
     )
     parser.add_argument(
+        "--exclude-video-glob",
+        action="append",
+        default=[],
+        help="Exclude source videos by filename glob. Can be repeated.",
+    )
+    parser.add_argument(
         "--max-videos",
         type=int,
         default=None,
@@ -647,6 +674,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Regenerate clips, analysed videos, stats, and reports if they exist.",
     )
     parser.add_argument(
+        "--continue-on-error",
+        action="store_true",
+        help="Continue with the next experiment if one analysis command fails.",
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Print the planned work without creating or processing files.",
@@ -658,6 +690,7 @@ def main() -> None:
     args = build_parser().parse_args()
     input_dir = (PROJECT_ROOT / args.input_dir).resolve()
     videos = sorted(input_dir.glob(args.video_glob))
+    videos = exclude_videos(videos, args.exclude_video_glob)
     if args.max_videos is not None:
         videos = videos[: args.max_videos]
     if not videos:
@@ -672,14 +705,17 @@ def main() -> None:
             "clips_per_video": args.clips_per_video,
             "starts": args.starts,
             "video_glob": args.video_glob,
+            "exclude_video_glob": args.exclude_video_glob,
             "max_videos": args.max_videos,
             "experiment_config": str(args.experiment_config) if args.experiment_config else None,
             "expected_players_min": args.expected_players_min,
             "expected_players_max": args.expected_players_max,
+            "continue_on_error": args.continue_on_error,
         },
         "experiments": experiments,
         "sources": [],
         "artifacts": [],
+        "failures": [],
     }
 
     for source in videos:
@@ -777,10 +813,21 @@ def main() -> None:
                         experiment.get("max_person_area_ratio_for_closeup"),
                     )
                     experiment_arg(command, "--team-render-mode", experiment.get("team_render_mode"))
-                    run_command(command, args.dry_run)
+                    ok, error = run_command(command, args.dry_run, args.continue_on_error)
+                    if not ok:
+                        manifest["failures"].append(
+                            {
+                                "experiment": experiment["name"],
+                                "profile": experiment["profile"],
+                                "clip": str(clip_path),
+                                "stage": "analysis",
+                                "error": error,
+                            }
+                        )
+                        continue
 
                 if args.overwrite or not report_path.exists():
-                    run_command(
+                    ok, error = run_command(
                         [
                             sys.executable,
                             "tools/generate_report_panel.py",
@@ -790,7 +837,19 @@ def main() -> None:
                             str(report_path),
                         ],
                         args.dry_run,
+                        args.continue_on_error,
                     )
+                    if not ok:
+                        manifest["failures"].append(
+                            {
+                                "experiment": experiment["name"],
+                                "profile": experiment["profile"],
+                                "clip": str(clip_path),
+                                "stage": "report",
+                                "error": error,
+                            }
+                        )
+                        continue
 
                 manifest["artifacts"].append(
                     asdict(
