@@ -38,6 +38,16 @@ class BallMemory:
 
 
 @dataclass
+class FrameAnnotation:
+    frame_index: int
+    status: str
+    persons: list[Detection]
+    ball: Detection | None
+    ball_from_memory: bool
+    fps_estimate: float
+
+
+@dataclass
 class TrackSummary:
     track_id: int
     first_frame: int
@@ -217,6 +227,12 @@ def parse_args():
         default=None,
         help="Ruta del JSON de metricas. Si no se indica, se genera en videos/output/stats.",
     )
+    parser.add_argument(
+        "--team-render-mode",
+        choices=["single-pass", "two-pass"],
+        default=nested_get(config, ["annotation", "team_render_mode"], "single-pass"),
+        help="single-pass mantiene el estilo actual; two-pass pinta equipos tras resolver clusters.",
+    )
     return parser.parse_args()
 
 
@@ -234,6 +250,19 @@ def make_stats_path(input_path, explicit_stats_output, config):
 
     output_dir = Path(nested_get(config, ["stats", "output_dir"], "videos/output/stats"))
     return output_dir / f"{input_path.stem}_stats.json"
+
+
+def make_writer(output_path, fps, width, height):
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    writer = cv2.VideoWriter(
+        str(output_path),
+        cv2.VideoWriter_fourcc(*"mp4v"),
+        fps,
+        (width, height),
+    )
+    if not writer.isOpened():
+        raise RuntimeError(f"No se pudo crear el video de salida: {output_path}")
+    return writer
 
 
 def clamp_box(box, width, height):
@@ -505,8 +534,8 @@ def detections_from_result(result, args, config, width, height):
     return persons, balls
 
 
-def draw_person_marker(frame, person, config):
-    color = (60, 220, 80)
+def draw_person_marker(frame, person, config, color=None):
+    color = color or (60, 220, 80)
     visual_scale = annotation_resolution_scale(frame, config)
     thickness = max(
         1,
@@ -713,8 +742,34 @@ def write_stats(
     with stats_path.open("w", encoding="utf-8") as file:
         json.dump(payload, file, indent=2)
 
+    return payload
 
-def annotate_frame(frame, persons, ball, ball_from_memory, status, frame_index, fps_estimate, config):
+
+def team_color(track_id, track_team_map):
+    if track_team_map is None:
+        return (60, 220, 80)
+    if track_id is None:
+        return (245, 245, 245)
+
+    team_id = track_team_map.get(int(track_id))
+    if team_id == "team_1":
+        return (230, 100, 40)
+    if team_id == "team_2":
+        return (40, 40, 230)
+    return (245, 245, 245)
+
+
+def annotate_frame(
+    frame,
+    persons,
+    ball,
+    ball_from_memory,
+    status,
+    frame_index,
+    fps_estimate,
+    config,
+    track_team_map=None,
+):
     visual_scale = annotation_resolution_scale(frame, config)
     base_person_label_scale = 0.45
     person_label_scale = base_person_label_scale * visual_scale * float(
@@ -728,14 +783,16 @@ def annotate_frame(frame, persons, ball, ball_from_memory, status, frame_index, 
     )
 
     for person in persons:
-        draw_person_marker(frame, person, config)
+        marker_color = team_color(person.track_id, track_team_map)
+        draw_person_marker(frame, person, config, marker_color)
         person_label = f"#{person.track_id} {person.conf:.2f}" if person.track_id is not None else f"person {person.conf:.2f}"
         draw_label(
             frame,
             person_label,
             person.x1,
             person.y2 + person_label_offset,
-            (30, 120, 50),
+            marker_color,
+            fg_color=(0, 0, 0) if marker_color == (245, 245, 245) else (255, 255, 255),
             scale=person_label_scale,
             bg_alpha=person_label_alpha,
         )
@@ -751,6 +808,48 @@ def annotate_frame(frame, persons, ball, ball_from_memory, status, frame_index, 
     draw_status_panel(frame, status, frame_index, persons, ball, ball_from_memory, fps_estimate)
 
 
+def track_team_map_from_stats(stats_payload):
+    if not stats_payload:
+        return {}
+    return {
+        int(track["track_id"]): track.get("team_id")
+        for track in stats_payload.get("tracks", [])
+        if track.get("track_id") is not None
+    }
+
+
+def render_two_pass_video(input_path, output_path, fps, width, height, frame_annotations, config, track_team_map):
+    cap = cv2.VideoCapture(str(input_path))
+    if not cap.isOpened():
+        raise RuntimeError(f"No se pudo reabrir el video para render en dos pasadas: {input_path}")
+
+    writer = make_writer(output_path, fps, width, height)
+    frame_index = 0
+    while True:
+        ok, frame = cap.read()
+        if not ok:
+            break
+
+        frame_index += 1
+        annotation = frame_annotations.get(frame_index)
+        if annotation is not None:
+            annotate_frame(
+                frame,
+                annotation.persons,
+                annotation.ball,
+                annotation.ball_from_memory,
+                annotation.status,
+                annotation.frame_index,
+                annotation.fps_estimate,
+                config,
+                track_team_map,
+            )
+        writer.write(frame)
+
+    cap.release()
+    writer.release()
+
+
 def main():
     args = parse_args()
     config = load_config(DEFAULT_CONFIG_PATH)
@@ -759,6 +858,7 @@ def main():
     output_path = make_output_path(input_path, args.output)
     stats_path = make_stats_path(input_path, args.stats_output, config)
     output_path.parent.mkdir(parents=True, exist_ok=True)
+    two_pass_team_render = args.team_render_mode == "two-pass"
 
     if not input_path.exists():
         raise FileNotFoundError(f"No existe el video de entrada: {input_path}")
@@ -774,16 +874,13 @@ def main():
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
-    writer = cv2.VideoWriter(
-        str(output_path),
-        cv2.VideoWriter_fourcc(*"mp4v"),
-        fps,
-        (width, height),
-    )
-
-    if not writer.isOpened():
-        cap.release()
-        raise RuntimeError(f"No se pudo crear el video de salida: {output_path}")
+    writer = None
+    if not two_pass_team_render:
+        try:
+            writer = make_writer(output_path, fps, width, height)
+        except RuntimeError:
+            cap.release()
+            raise
 
     print("======================================")
     print("football-ai-analysis | video_analise v2")
@@ -802,6 +899,7 @@ def main():
     ball_memory = BallMemory()
     track_summaries = {}
     frame_metrics = []
+    frame_annotations = {}
     start_tick = cv2.getTickCount()
 
     while True:
@@ -900,24 +998,36 @@ def main():
 
             elapsed = (cv2.getTickCount() - start_tick) / cv2.getTickFrequency()
             fps_estimate = processed_frames / elapsed if elapsed > 0 else 0.0
-            annotate_frame(
-                frame,
-                persons,
-                selected_ball,
-                ball_from_memory,
-                status,
-                frame_index,
-                fps_estimate,
-                config,
-            )
+            if two_pass_team_render:
+                frame_annotations[frame_index] = FrameAnnotation(
+                    frame_index=frame_index,
+                    status=status,
+                    persons=list(persons),
+                    ball=selected_ball,
+                    ball_from_memory=ball_from_memory,
+                    fps_estimate=fps_estimate,
+                )
+            else:
+                annotate_frame(
+                    frame,
+                    persons,
+                    selected_ball,
+                    ball_from_memory,
+                    status,
+                    frame_index,
+                    fps_estimate,
+                    config,
+                )
 
-        writer.write(frame)
+        if writer is not None:
+            writer.write(frame)
 
         if frame_index % 50 == 0:
             print(f"Procesados {frame_index}/{total_frames} frames...")
 
     cap.release()
-    writer.release()
+    if writer is not None:
+        writer.release()
 
     print()
     print("======================================")
@@ -930,10 +1040,10 @@ def main():
     for status, count in sorted(status_counts.items()):
         percentage = (count / processed_frames) * 100 if processed_frames else 0.0
         print(f"{status}: {count} ({percentage:.2f}%)")
-    print(f"Video generado: {output_path}")
+    stats_payload = None
 
     if bool(nested_get(config, ["stats", "enabled"], True)):
-        write_stats(
+        stats_payload = write_stats(
             config,
             stats_path,
             input_path,
@@ -947,6 +1057,21 @@ def main():
             frame_metrics,
         )
         print(f"Metricas generadas: {stats_path}")
+
+    if two_pass_team_render:
+        track_team_map = track_team_map_from_stats(stats_payload)
+        render_two_pass_video(
+            input_path,
+            output_path,
+            fps,
+            width,
+            height,
+            frame_annotations,
+            config,
+            track_team_map,
+        )
+
+    print(f"Video generado: {output_path}")
 
 
 if __name__ == "__main__":

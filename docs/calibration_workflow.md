@@ -35,6 +35,14 @@ C:\Users\javie\miniconda3\envs\football-ai\python.exe tools\run_full_pitch_test_
 
 Without `--experiment-config`, the script keeps the previous single-run behavior.
 
+The batch runner writes:
+
+- `index.html` with a global ranking by profile and clip-level details;
+- `comparison_ranking.json` with the aggregate ranking in machine-readable form;
+- one annotated video per clip and experiment;
+- one stats JSON per clip and experiment;
+- one panel HTML per clip and experiment.
+
 ## Metrics that matter
 
 For player and team tracking:
@@ -73,18 +81,22 @@ motion-blurred, outside the frame, or visually merged with pitch lines. A
 configuration that reports the ball in every frame can still be worse if it
 creates many false positives or impossible jumps.
 
-Team-colored annotations require either a two-pass pipeline or an online team
-classifier. The current v2 code clusters team colors after reading the clip, so
-the analysed video cannot yet be reliably painted blue/red/white during the same
-single pass.
+Team-colored annotations now support an optional two-pass mode. The first pass
+collects detections, tracking, jersey color summaries, and team clusters. The
+second pass reopens the same video and renders team overlays:
+
+- `team_1`: blue marker;
+- `team_2`: red marker;
+- unassigned or non-team tracks: white marker.
+
+This is still an approximation for referees. A true referee class should be
+added later using either manual calibration, color outlier logic, or a small
+classifier trained on referee kits.
 
 ## Next implementation blocks
 
-1. Add aggregate comparison metrics and a ranking dashboard.
-2. Add a two-pass annotation mode so team colors can be rendered in the output
-   video after team clusters are known.
-3. Add referee handling as a third visual class, initially based on team-color
+1. Add referee handling as a third visual class, initially based on team-color
    outliers and later improved with manual calibration or a small classifier.
-4. Add field/camera presets for real installations.
-5. Add v3 ball-player association metrics that directly support passes and
+2. Add field/camera presets for real installations.
+3. Add v3 ball-player association metrics that directly support passes and
    possession.

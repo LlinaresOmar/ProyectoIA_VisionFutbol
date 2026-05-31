@@ -20,6 +20,7 @@ experiments:
     min_green_ratio: 0.25
     min_players_for_play_frame: 14
     max_person_area_ratio_for_closeup: 0.20
+    team_render_mode: two-pass
 
   - name: players_bytetrack_1280_sensitive
     profile: player_tracking
@@ -33,6 +34,7 @@ experiments:
     min_green_ratio: 0.22
     min_players_for_play_frame: 14
     max_person_area_ratio_for_closeup: 0.20
+    team_render_mode: two-pass
 
   - name: players_botsort_960_balanced
     profile: player_tracking
@@ -46,6 +48,7 @@ experiments:
     min_green_ratio: 0.25
     min_players_for_play_frame: 14
     max_person_area_ratio_for_closeup: 0.20
+    team_render_mode: two-pass
 
   - name: ball_bytetrack_960_sensitive
     profile: ball_detection
@@ -59,6 +62,7 @@ experiments:
     min_green_ratio: 0.25
     min_players_for_play_frame: 10
     max_person_area_ratio_for_closeup: 0.20
+    team_render_mode: two-pass
 
   - name: ball_bytetrack_1280_sensitive
     profile: ball_detection
@@ -72,6 +76,7 @@ experiments:
     min_green_ratio: 0.22
     min_players_for_play_frame: 10
     max_person_area_ratio_for_closeup: 0.20
+    team_render_mode: two-pass
 
   - name: ball_botsort_960_sensitive
     profile: ball_detection
@@ -85,3 +90,4 @@ experiments:
     min_green_ratio: 0.25
     min_players_for_play_frame: 10
     max_person_area_ratio_for_closeup: 0.20
+    team_render_mode: two-pass

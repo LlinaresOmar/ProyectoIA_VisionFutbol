@@ -44,6 +44,7 @@ annotation:
   person_marker_style: lower_u
   person_marker_height_ratio: 0.25
   person_marker_thickness: 1
+  team_render_mode: single-pass
 
 tracking:
   enabled: true
