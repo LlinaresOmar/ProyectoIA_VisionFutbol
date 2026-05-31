@@ -334,43 +334,34 @@ Las capturas más útiles para obtener una visión rápida de los resultados son
 
 1. **Indice comparativo final**
 
-   Archivo:
-
-   ```text
-   videos/output/final_demo/index.html
-   ```
-
    Esta captura permite mostrar que el proyecto compara varios clips y fuentes de video en un unico panel.
 
    ![Indice de la aplicacion](diagrams/index_html.png)
 
 2. **Panel HTML de un clip full-pitch**
 
-   Ejemplo:
-
-   ```text
-   videos/output/final_demo/full_pitch_events/reports/full_pitch_128058_ball_visible_report.html
-   ```
-
    Esta captura muestra metricas como frames analizables, balon visible, tracks, equipos y pases candidatos.
+
+   ![Clip full-pitch](diagrams/full_pitch_ball_visible.png)
+
 
 3. **Panel HTML de un clip de television**
 
-   Ejemplo:
-
-   ```text
-   videos/output/final_demo/tv_detection/reports/tv_720_camera_change_report.html
-   ```
-
    Sirve para explicar que la television puede detectar jugadores y balon, pero no mantiene igual de bien la continuidad tactica.
+
+   ![Clip de television](diagrams/tv_720_camera.png)
 
 4. **Frame de video anotado**
 
-   Puede capturarse desde cualquier MP4 de `videos/output/final_demo`. Lo ideal es elegir un frame donde se vean varios jugadores con `#track_id`, el balon y los contadores de pases.
+   Captura de ejemplo de video anotado.
+
+   ![Video anotado](diagrams/video_captura.png)
 
 5. **Contact sheet**
 
-   Una contact sheet resume visualmente un clip completo y es especialmente util para el tribunal porque permite entender el comportamiento del sistema de un vistazo.
+   Una contact sheet resume visualmente un clip completo y es especialmente util porque permite entender el comportamiento del sistema de un vistazo.
+
+   ![Contact_sheet](diagrams/contact_sheet.jpg)
 
 ## 14. Resultados obtenidos
 
