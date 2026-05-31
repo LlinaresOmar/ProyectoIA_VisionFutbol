@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import sys
 from dataclasses import asdict, dataclass
+from html import escape
 from pathlib import Path
 
 import cv2
@@ -87,6 +89,133 @@ def run_command(command: list[str], dry_run: bool) -> None:
     if dry_run:
         return
     subprocess.run(command, cwd=PROJECT_ROOT, check=True)
+
+
+def relative_link(target: Path, base_dir: Path) -> str:
+    return Path(os.path.relpath(target.resolve(), base_dir.resolve())).as_posix()
+
+
+def load_summary(stats_path: Path) -> dict:
+    if not stats_path.exists():
+        return {}
+    with stats_path.open("r", encoding="utf-8") as file:
+        data = json.load(file)
+    return data.get("summary", {})
+
+
+def write_index(artifacts: list[dict], reports_dir: Path) -> Path:
+    reports_dir.mkdir(parents=True, exist_ok=True)
+    index_path = reports_dir / "index.html"
+    rows = []
+
+    for artifact in artifacts:
+        clip_path = Path(artifact["clip"])
+        analysed_path = Path(artifact["analysed_video"])
+        stats_path = Path(artifact["stats_json"])
+        report_path = Path(artifact["report_html"])
+        summary = load_summary(stats_path)
+        frames = int(summary.get("frames_analyzed", 0))
+        ball_frames = int(summary.get("ball_visible_frames", 0))
+        ball_pct = (ball_frames / frames) * 100 if frames else 0.0
+        statuses = ", ".join(
+            f"{key}: {value}" for key, value in summary.get("status_counts", {}).items()
+        )
+
+        rows.append(
+            f"""
+            <tr>
+              <td>{escape(clip_path.stem)}</td>
+              <td>{artifact["start_seconds"]:.0f}s</td>
+              <td>{summary.get("unique_player_tracks", "-")}</td>
+              <td>{ball_pct:.1f}%</td>
+              <td>{escape(statuses or "-")}</td>
+              <td><a href="{relative_link(analysed_path, reports_dir)}">video</a></td>
+              <td><a href="{relative_link(report_path, reports_dir)}">panel</a></td>
+              <td><a href="{relative_link(stats_path, reports_dir)}">json</a></td>
+            </tr>
+            """
+        )
+
+    index_path.write_text(
+        f"""<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Full Pitch Test Batch</title>
+  <style>
+    body {{
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: #f7f7f4;
+      color: #191919;
+    }}
+    main {{
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 32px 20px;
+    }}
+    h1 {{
+      margin: 0 0 8px;
+      font-size: 28px;
+    }}
+    p {{
+      margin: 0 0 24px;
+      color: #626262;
+    }}
+    table {{
+      width: 100%;
+      border-collapse: collapse;
+      background: #fff;
+      border: 1px solid #deded6;
+    }}
+    th, td {{
+      padding: 10px 12px;
+      border-bottom: 1px solid #ecece5;
+      text-align: left;
+      font-size: 14px;
+      vertical-align: top;
+    }}
+    th {{
+      background: #efefe8;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+    }}
+    a {{
+      color: #176b5d;
+      font-weight: 700;
+    }}
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Full Pitch Test Batch</h1>
+    <p>Resumen navegable de clips panoramicos procesados con video_analise.py v2.</p>
+    <table>
+      <thead>
+        <tr>
+          <th>Clip</th>
+          <th>Inicio</th>
+          <th>Tracks</th>
+          <th>Balon visible</th>
+          <th>Estados</th>
+          <th>Video</th>
+          <th>Panel</th>
+          <th>Stats</th>
+        </tr>
+      </thead>
+      <tbody>
+        {''.join(rows)}
+      </tbody>
+    </table>
+  </main>
+</body>
+</html>
+""",
+        encoding="utf-8",
+    )
+    return index_path
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -289,6 +418,11 @@ def main() -> None:
     if not args.dry_run:
         with manifest_path.open("w", encoding="utf-8") as file:
             json.dump(manifest, file, indent=2)
+        index_path = write_index(
+            manifest["artifacts"],
+            (PROJECT_ROOT / args.reports_dir).resolve(),
+        )
+        print(f"Batch index: {index_path}")
 
     print(f"Batch manifest: {manifest_path}")
 
