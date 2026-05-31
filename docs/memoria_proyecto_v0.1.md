@@ -328,9 +328,9 @@ Despues se puede acceder desde:
 http://127.0.0.1:8765/index.html
 ```
 
-### 13.1. Capturas recomendadas de artefactos
+### 13.1. Capturas de artefactos
 
-Para que la memoria no sea solo texto, se recomienda insertar varias capturas de pantalla de la demo final. Las capturas mas utiles serian:
+Las capturas más útiles para obtener una visión rápida de los resultados son:
 
 1. **Indice comparativo final**
 
@@ -341,6 +341,8 @@ Para que la memoria no sea solo texto, se recomienda insertar varias capturas de
    ```
 
    Esta captura permite mostrar que el proyecto compara varios clips y fuentes de video en un unico panel.
+
+   ![Indice de la aplicacion](diagrams/index_html.png)
 
 2. **Panel HTML de un clip full-pitch**
 
