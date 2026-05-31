@@ -782,7 +782,10 @@ def hsv_matches_referee(avg_hsv, config):
         and saturation >= float(yellow.get("s_min", 60))
         and value >= float(yellow.get("v_min", 80))
     )
-    is_black = value <= float(black.get("v_max", 75))
+    is_black = (
+        value <= float(black.get("v_max", 75))
+        and saturation <= float(black.get("s_max", 80))
+    )
     is_white = (
         saturation <= float(white.get("s_max", 55))
         and value >= float(white.get("v_min", 150))
