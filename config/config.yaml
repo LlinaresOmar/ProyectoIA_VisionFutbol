@@ -83,7 +83,7 @@ annotation:
   person_label_background_alpha: 0.50
   person_label_offset_px: 4
   ball_label_background_alpha: 0.50
-  ball_label_offset_px: 8
+  ball_label_offset_px: 3
   show_person_confidence: false
   show_untracked_persons: false
   person_marker_style: lower_u
