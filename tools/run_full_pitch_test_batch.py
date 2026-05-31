@@ -362,9 +362,9 @@ def write_index(
               <td>{metrics["ball_pct"]:.1f}%</td>
               <td>{score:.1f}</td>
               <td>{escape(statuses or "-")}</td>
-              <td><a href="{relative_link(analysed_path, reports_dir)}">video</a></td>
-              <td><a href="{relative_link(report_path, reports_dir)}">panel</a></td>
-              <td><a href="{relative_link(stats_path, reports_dir)}">json</a></td>
+              <td><a href="{relative_link(analysed_path, reports_dir)}" target="_blank" rel="noopener">video</a></td>
+              <td><a href="{relative_link(report_path, reports_dir)}" target="_blank" rel="noopener">panel</a></td>
+              <td><a href="{relative_link(stats_path, reports_dir)}" target="_blank" rel="noopener">json</a></td>
             </tr>
             """
         )

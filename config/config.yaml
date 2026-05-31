@@ -43,6 +43,37 @@ ball_filter:
       y_min_ratio: 0.62
       x_max_ratio: 0.69
       y_max_ratio: 0.84
+    - name: tsukuba_right_touchline_loose_balls
+      source_patterns:
+        - "128058*"
+        - "128058_*.mp4"
+        - "*128058_panorama_1st_half_cortado*"
+      x_min_ratio: 0.93
+      y_min_ratio: 0.54
+      x_max_ratio: 1.00
+      y_max_ratio: 0.68
+  ignore_below_polylines:
+    - name: tsukuba_bottom_touchline_outside_pitch
+      source_patterns:
+        - "128058*"
+        - "128058_*.mp4"
+        - "*128058_panorama_1st_half_cortado*"
+      margin_ratio: 0.012
+      points:
+        - x_ratio: 0.00
+          y_ratio: 0.55
+        - x_ratio: 0.16
+          y_ratio: 0.62
+        - x_ratio: 0.35
+          y_ratio: 0.66
+        - x_ratio: 0.50
+          y_ratio: 0.67
+        - x_ratio: 0.66
+          y_ratio: 0.66
+        - x_ratio: 0.84
+          y_ratio: 0.62
+        - x_ratio: 1.00
+          y_ratio: 0.55
 
 annotation:
   reference_frame_height: 224

@@ -357,6 +357,45 @@ def detection_center_in_region(detection, region, width, height):
     return x_min <= cx <= x_max and y_min <= cy <= y_max
 
 
+def detection_center_below_polyline(detection, line_config, width, height):
+    points = line_config.get("points", [])
+    if len(points) < 2:
+        return False
+
+    normalized = []
+    for point in points:
+        if not isinstance(point, dict):
+            continue
+        normalized.append(
+            (
+                float(point.get("x_ratio", 0.0)) * width,
+                float(point.get("y_ratio", 0.0)) * height,
+            )
+        )
+
+    if len(normalized) < 2:
+        return False
+
+    normalized.sort(key=lambda item: item[0])
+    cx, cy = detection.center
+    if cx < normalized[0][0] or cx > normalized[-1][0]:
+        return False
+
+    y_on_line = None
+    for first, second in zip(normalized, normalized[1:]):
+        if first[0] <= cx <= second[0]:
+            span = max(1.0, second[0] - first[0])
+            ratio = (cx - first[0]) / span
+            y_on_line = first[1] + (second[1] - first[1]) * ratio
+            break
+
+    if y_on_line is None:
+        return False
+
+    margin = float(line_config.get("margin_ratio", 0.0)) * height
+    return cy >= y_on_line + margin
+
+
 def region_applies_to_source(region, source_name):
     patterns = region.get("source_patterns")
     if not patterns:
@@ -373,14 +412,22 @@ def region_applies_to_source(region, source_name):
 
 def is_ignored_ball_candidate(detection, config, width, height, source_name=None):
     regions = nested_get(config, ["ball_filter", "ignore_regions"], [])
-    if not isinstance(regions, list):
-        return False
-
-    return any(
+    if isinstance(regions, list) and any(
         detection_center_in_region(detection, region, width, height)
         for region in regions
         if isinstance(region, dict) and region_applies_to_source(region, source_name)
-    )
+    ):
+        return True
+
+    below_lines = nested_get(config, ["ball_filter", "ignore_below_polylines"], [])
+    if isinstance(below_lines, list) and any(
+        detection_center_below_polyline(detection, line_config, width, height)
+        for line_config in below_lines
+        if isinstance(line_config, dict) and region_applies_to_source(line_config, source_name)
+    ):
+        return True
+
+    return False
 
 
 def select_ball(candidates, memory):
