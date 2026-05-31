@@ -91,6 +91,21 @@ def build_team_cards(teams):
     return "\n".join(cards)
 
 
+def build_pass_cards(summary, possession):
+    frames_by_team = possession.get("frames_by_team", {})
+    total_possession_frames = sum(int(value or 0) for value in frames_by_team.values())
+
+    def possession_pct(team):
+        return percent(int(frames_by_team.get(team, 0) or 0), total_possession_frames)
+
+    return f"""
+      <article class="card"><p class="muted">Team 1 passes</p><strong>{summary.get("team_1_passes", 0)}</strong><p class="muted">{possession_pct("team_1"):.1f}% posesion</p></article>
+      <article class="card"><p class="muted">Team 2 passes</p><strong>{summary.get("team_2_passes", 0)}</strong><p class="muted">{possession_pct("team_2"):.1f}% posesion</p></article>
+      <article class="card"><p class="muted">Pass candidates</p><strong>{summary.get("pass_candidates", 0)}</strong><p class="muted">eventos aproximados</p></article>
+      <article class="card"><p class="muted">Referee candidates</p><strong>{summary.get("role_counts", {}).get("referee_candidate", 0)}</strong><p class="muted">tracks outlier</p></article>
+    """
+
+
 def build_tracks_table(tracks):
     rows = []
     sorted_tracks = sorted(
@@ -101,12 +116,14 @@ def build_tracks_table(tracks):
 
     for track in sorted_tracks:
         team_id = track.get("team_id") or "-"
+        role = track.get("role") or "-"
         color = rgb_to_css(track.get("avg_jersey_rgb"))
         rows.append(
             f"""
             <tr>
               <td>#{track.get("track_id")}</td>
               <td>{escape(str(team_id))}</td>
+              <td>{escape(str(role))}</td>
               <td>{track.get("frames_seen", 0)}</td>
               <td>{track.get("avg_conf", 0)}</td>
               <td>{track.get("total_distance_px", 0)}</td>
@@ -118,12 +135,50 @@ def build_tracks_table(tracks):
     return "\n".join(rows)
 
 
+def build_events_table(events):
+    if not events:
+        return '<p class="muted">Sin eventos de pase detectados en este clip.</p>'
+
+    rows = []
+    for event in events[:20]:
+        rows.append(
+            f"""
+            <tr>
+              <td>{escape(str(event.get("type", "-")))}</td>
+              <td>{event.get("frame", "-")}</td>
+              <td>{escape(str(event.get("team", "-")))}</td>
+              <td>#{event.get("from_track_id", "-")}</td>
+              <td>#{event.get("to_track_id", "-")}</td>
+              <td>{event.get("distance_px", "-")}</td>
+            </tr>
+            """
+        )
+
+    return f"""
+      <table>
+        <thead>
+          <tr>
+            <th>Tipo</th>
+            <th>Frame</th>
+            <th>Equipo</th>
+            <th>Desde</th>
+            <th>Hacia</th>
+            <th>Dist. balon px</th>
+          </tr>
+        </thead>
+        <tbody>{''.join(rows)}</tbody>
+      </table>
+    """
+
+
 def build_html(stats):
     metadata = stats.get("metadata", {})
     summary = stats.get("summary", {})
     tracks = stats.get("tracks", [])
     teams = stats.get("teams", {})
     frames = stats.get("frames", [])
+    possession = stats.get("possession", {})
+    events = stats.get("events", [])
     frames_analyzed = int(summary.get("frames_analyzed", 0))
     ball_visible = int(summary.get("ball_visible_frames", 0))
     ball_ratio = percent(ball_visible, frames_analyzed)
@@ -132,6 +187,7 @@ def build_html(stats):
         {
             "frames": frames,
             "statusColors": STATUS_COLORS,
+            "possession": possession.get("timeline", []),
         }
     )
 
@@ -262,6 +318,12 @@ def build_html(stats):
       border-radius: 4px;
       border: 1px solid rgba(0,0,0,.18);
     }}
+    .note {{
+      margin-top: 10px;
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.45;
+    }}
     @media (max-width: 860px) {{
       header, .sections {{ display: block; }}
       .grid {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }}
@@ -286,6 +348,10 @@ def build_html(stats):
       <article class="card"><p class="muted">Track maximo</p><strong>{summary.get("max_track_length_frames", 0)}</strong><p class="muted">frames</p></article>
     </div>
 
+    <div class="grid">
+      {build_pass_cards(summary, possession)}
+    </div>
+
     <div class="sections">
       <section>
         <h2>Estados Del Clip</h2>
@@ -294,12 +360,14 @@ def build_html(stats):
       <section>
         <h2>Equipos Por Color</h2>
         <div class="team-list">{build_team_cards(teams)}</div>
+        <p class="note">team_1 y team_2 salen de clusters de color por track. referee_candidate es un outlier estable de color respecto a esos clusters, por tanto es heuristico.</p>
       </section>
     </div>
 
     <section>
       <h2>Timeline De Estados</h2>
       <canvas id="timeline" width="1080" height="140"></canvas>
+      <p class="note">La posesion se estima asociando el balon al pie del track mas cercano dentro de un umbral. Un pase candidato aparece cuando cambia el poseedor a otro track del mismo equipo en una ventana temporal plausible.</p>
     </section>
 
     <section style="margin-top:18px">
@@ -309,6 +377,7 @@ def build_html(stats):
           <tr>
             <th>ID</th>
             <th>Equipo</th>
+            <th>Rol</th>
             <th>Frames</th>
             <th>Conf.</th>
             <th>Distancia px</th>
@@ -317,6 +386,11 @@ def build_html(stats):
         </thead>
         <tbody>{build_tracks_table(tracks)}</tbody>
       </table>
+    </section>
+
+    <section style="margin-top:18px">
+      <h2>Eventos De Pase</h2>
+      {build_events_table(events)}
     </section>
   </main>
   <script>
